@@ -1,0 +1,760 @@
+.explorePage {
+	display: flex;
+	flex-direction: column;
+	min-height: 100%;
+	font-family: var(--supe-font-family-base);
+	background: var(--supe-bg-page);
+	--explore-control-height: var(--supe-control-height-md);
+	--explore-control-height-compact: var(--supe-control-height-sm);
+	--explore-control-radius: var(--supe-radius-md);
+	--explore-control-radius-compact: var(--supe-radius-sm);
+	--explore-header-row-height: var(--supe-control-height-lg);
+	--explore-table-head-height: var(--supe-table-head-height);
+	--explore-table-row-height: var(--supe-table-row-height);
+}
+
+.exploreHeaderRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	min-height: var(--explore-header-row-height);
+	padding: var(--supe-space-sm) var(--supe-space-4xl);
+	background: var(--supe-bg-surface);
+	border-bottom: 1px solid var(--supe-border-default);
+}
+
+.exploreHeaderLeft {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+}
+
+.exploreTrail {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: var(--supe-font-size-sm);
+	font-weight: var(--supe-font-weight-medium);
+	color: var(--supe-text-muted);
+	min-width: 0;
+
+	strong {
+		font-size: var(--supe-font-size-lg);
+		font-weight: var(--supe-font-weight-semibold);
+		color: #172033;
+	}
+}
+
+.exploreHeaderIcon {
+	color: #a1aabe;
+	font-size: 16px;
+}
+
+.exploreTrailDivider {
+	color: #c5ccda;
+}
+
+.exploreHeaderMeta {
+	font-size: var(--supe-font-size-xs);
+	font-weight: var(--supe-font-weight-medium);
+	color: #9aa3b8;
+}
+
+.exploreCountChip {
+	display: inline-flex;
+	align-items: center;
+	height: 24px;
+	padding: 0 9px;
+	border-radius: var(--supe-radius-sm);
+	background: var(--supe-bg-surface-soft);
+	color: #99a2b3;
+	font-size: var(--supe-font-size-xs);
+	font-weight: var(--supe-font-weight-medium);
+	flex-shrink: 0;
+}
+
+.exploreSearchWrap {
+	display: flex;
+	justify-content: flex-end;
+	flex: 0 0 auto;
+}
+
+.exploreSearchBox {
+	position: relative;
+	width: 270px;
+	height: var(--explore-control-height);
+	border: 1px solid var(--supe-border-control);
+	border-radius: var(--explore-control-radius);
+	background: var(--supe-bg-surface);
+	overflow: hidden;
+}
+
+.exploreSearchIcon {
+	position: absolute;
+	left: 12px;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 14px;
+	color: #a6afc0;
+	pointer-events: none;
+}
+
+.exploreSearchInput {
+	width: 100%;
+	height: 100%;
+	border: none;
+	outline: none;
+	background: transparent;
+	padding: 0 12px 0 38px;
+	font-size: var(--supe-font-size-xs);
+	font-weight: var(--supe-font-weight-regular);
+	color: #1e283c;
+
+	&::placeholder {
+		color: #b0b8c8;
+	}
+}
+
+.exploreBar {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 24px;
+	padding: var(--supe-space-sm) var(--supe-space-4xl);
+	background: var(--supe-bg-surface);
+	border-bottom: 1px solid var(--supe-border-default);
+}
+
+.exploreBarItem {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.exploreBarLabel {
+	font-size: var(--supe-font-size-xs);
+	font-weight: var(--supe-font-weight-medium);
+	color: #6d7688;
+}
+
+.exploreSelectWrap {
+	position: relative;
+}
+
+.exploreSelectButton {
+	height: var(--explore-control-height);
+	min-width: 128px;
+	padding: 0 12px;
+	border: 1px solid var(--supe-border-control);
+	border-radius: var(--explore-control-radius);
+	background: var(--supe-bg-surface);
+	display: inline-flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	font-size: var(--supe-font-size-sm);
+	font-weight: var(--supe-font-weight-medium);
+	color: #172033;
+	cursor: pointer;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+	&:hover {
+		border-color: #bcc7d9;
+	}
+}
+
+.exploreSelectButtonCompact {
+	height: var(--explore-control-height-compact);
+	min-width: 106px;
+	padding: 0 11px;
+	border-radius: var(--explore-control-radius-compact);
+}
+
+.exploreSelectButtonWide {
+	min-width: 140px;
+}
+
+.exploreSelectButtonActive {
+	border-color: #aebad4;
+	box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.06);
+}
+
+.exploreSelectValue {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.exploreSelectValueText {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.exploreSelectLeadingIcon {
+	color: #99a4ba;
+	font-size: 13px;
+}
+
+.exploreSelectCaret {
+	color: #a2acbe;
+	font-size: 10px;
+}
+
+.exploreSelectMenu {
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 0;
+	z-index: 30;
+	min-width: 220px;
+	background: var(--supe-bg-surface);
+	border: 1px solid #e3e8f2;
+	border-radius: var(--supe-radius-xl);
+	box-shadow: var(--supe-shadow-popover);
+	overflow: hidden;
+}
+
+.exploreSelectMenuBody {
+	max-height: 280px;
+	overflow: auto;
+	padding: 6px;
+}
+
+.exploreSelectMenuBody,
+.exploreTableScroll,
+.columnPickerBody {
+	scrollbar-width: thin;
+	scrollbar-color: #c6cfdf transparent;
+
+	&::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	&::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	&::-webkit-scrollbar-thumb {
+		background: #c6cfdf;
+		border-radius: 999px;
+	}
+}
+
+.exploreSelectOption {
+	width: 100%;
+	border: none;
+	background: transparent;
+	padding: 8px 10px;
+	border-radius: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	font-size: 12px;
+	font-weight: 500;
+	color: #334058;
+	cursor: pointer;
+	text-align: left;
+
+	&:hover {
+		background: #f5f7fb;
+	}
+}
+
+.exploreSelectOptionActive {
+	background: #eef2ff;
+	color: #4361ee;
+}
+
+.exploreControlsRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 8px 28px;
+	background: #ffffff;
+	border-bottom: 1px solid #e7ebf3;
+}
+
+.exploreControlsLeft,
+.exploreControlsRight {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.exploreInlineMeta {
+	font-size: 13px;
+	font-weight: 500;
+	color: #6d7688;
+}
+
+.exploreDivider {
+	width: 1px;
+	height: 18px;
+	background: #e1e6f0;
+}
+
+.tableControlButton {
+	height: var(--explore-control-height-compact);
+	padding: 0 11px;
+	border: 1px solid #d7deea;
+	border-radius: var(--explore-control-radius-compact);
+	background: #ffffff;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	font-weight: 500;
+	color: #4a556b;
+	cursor: pointer;
+
+	&:hover {
+		background: #f8faff;
+	}
+}
+
+.tableControlCount {
+	display: inline-flex;
+	align-items: center;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: #f1f4fa;
+	color: #7d8799;
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.columnPickerWrap {
+	position: relative;
+}
+
+.columnPickerMenu {
+	position: absolute;
+	right: 0;
+	top: calc(100% + 8px);
+	z-index: 35;
+	width: 280px;
+	background: #ffffff;
+	border: 1px solid #e3e8f2;
+	border-radius: 18px;
+	box-shadow: 0 24px 44px rgba(19, 29, 48, 0.16);
+	overflow: hidden;
+}
+
+.columnPickerHeader {
+	padding: 10px 12px;
+	border-bottom: 1px solid #edf1f6;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.columnPickerTitle {
+	font-size: 12px;
+	font-weight: 700;
+	color: #1f2937;
+}
+
+.columnPickerReset {
+	border: none;
+	background: transparent;
+	padding: 0;
+	font-size: 11px;
+	font-weight: 600;
+	color: #8a93a6;
+	cursor: pointer;
+}
+
+.columnPickerBody {
+	max-height: 360px;
+	overflow: auto;
+	padding: 6px 8px 8px;
+}
+
+.columnPickerSectionLabel {
+	padding: 10px 8px 6px;
+	font-size: 11px;
+	font-weight: 700;
+	color: #9aa3b5;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.columnPickerRow {
+	width: 100%;
+	border: none;
+	background: transparent;
+	padding: 8px 8px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	border-radius: 10px;
+	cursor: pointer;
+	text-align: left;
+
+	&:hover {
+		background: #f7f9fd;
+	}
+}
+
+.columnPickerCheckbox {
+	width: 16px;
+	height: 16px;
+	border-radius: 5px;
+	border: 1px solid #cfd7e6;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	background: #ffffff;
+}
+
+.columnPickerCheckboxChecked {
+	background: #4361ee;
+	border-color: #4361ee;
+	color: #ffffff;
+}
+
+.columnPickerLabel {
+	font-size: 12px;
+	font-weight: 500;
+	color: #2f3a4f;
+}
+
+.columnPickerPinned {
+	margin-left: auto;
+	font-size: 11px;
+	font-weight: 700;
+	color: #a0a8b8;
+}
+
+.exploreTableShell {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	background: #ffffff;
+}
+
+.exploreEmpty {
+	padding: 72px 24px;
+	text-align: center;
+	color: #98a2b3;
+
+	strong {
+		display: block;
+		font-size: 16px;
+		font-weight: 700;
+		color: #344054;
+		margin-bottom: 6px;
+	}
+}
+
+.exploreTableScroll {
+	flex: 1 1 auto;
+	overflow: auto;
+	background: #ffffff;
+}
+
+.exploreTable {
+	width: 100%;
+	min-width: 1040px;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+.exploreTableHead {
+	position: sticky;
+	top: 0;
+	z-index: 5;
+	background: #f7f9fc;
+}
+
+.exploreTh {
+	height: var(--explore-table-head-height);
+	padding: 0 14px;
+	border-bottom: 1px solid #e2e7f0;
+	font-size: 11px;
+	font-weight: 600;
+	color: #6e7890;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	background: #f7f9fc;
+	white-space: nowrap;
+}
+
+.exploreThSortable {
+	cursor: pointer;
+}
+
+.exploreThInner {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.exploreSortIcon {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	line-height: 1;
+	gap: 1px;
+	color: #a1aabc;
+	font-size: 8px;
+}
+
+.exploreSortIconActive {
+	color: #7f89a0;
+}
+
+.exploreSortIconMuted {
+	opacity: 0.5;
+}
+
+.exploreCheckboxCell {
+	width: 52px;
+	padding-left: 14px;
+	padding-right: 8px;
+}
+
+.exploreCheckbox {
+	width: 20px;
+	height: 20px;
+	border-radius: 6px;
+	border: 1px solid #cfd7e6;
+	background: #ffffff;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: transparent;
+	cursor: pointer;
+}
+
+.exploreCheckboxChecked {
+	background: #4361ee;
+	border-color: #4361ee;
+	color: #ffffff;
+}
+
+.exploreTr {
+	transition: background-color 0.16s ease;
+
+	&:hover {
+		background: #fafcff;
+	}
+}
+
+.exploreTrSelected {
+	background: rgba(67, 97, 238, 0.05);
+}
+
+.exploreTd {
+	height: var(--explore-table-row-height);
+	padding: 0 14px;
+	border-bottom: 1px solid #eef2f7;
+	font-size: 13px;
+	font-weight: 500;
+	color: #1f2937;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.explorePrimaryCell {
+	font-weight: 600;
+	color: #172033;
+}
+
+.exploreMutedText {
+	color: #8c95a8;
+}
+
+.explorePositiveText {
+	color: #16a34a;
+}
+
+.exploreWarningText {
+	color: #d97706;
+}
+
+.exploreDangerText {
+	color: #ef4444;
+}
+
+.exploreHoverActions {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	opacity: 0;
+	transition: opacity 0.16s ease;
+}
+
+.exploreTr:hover .exploreHoverActions {
+	opacity: 1;
+}
+
+.rowActionButton {
+	height: 24px;
+	padding: 0 9px;
+	border: none;
+	border-radius: 8px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 10px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.insightButton {
+	background: rgba(67, 97, 238, 0.1);
+	color: #4361ee;
+}
+
+.actButton {
+	background: #e9f9ee;
+	color: #16803c;
+}
+
+.exploreGroupHeader td {
+	height: 40px;
+	padding: 0 16px;
+	border-bottom: 1px solid #e4e8f1;
+	background: #f7f9fc;
+	font-size: 12px;
+	font-weight: 600;
+	color: #273247;
+}
+
+.groupHeaderInner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.groupHeaderLeft,
+.groupHeaderRight {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.groupCount {
+	font-size: 12px;
+	font-weight: 500;
+	color: #9099ab;
+}
+
+.selectionBar {
+	position: sticky;
+	bottom: 18px;
+	left: 50%;
+	width: fit-content;
+	margin: 0 auto 18px;
+	padding: 12px 16px;
+	border-radius: 16px;
+	background: #121722;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 0 20px 40px rgba(12, 19, 31, 0.24);
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	color: #ffffff;
+	z-index: 20;
+}
+
+.selectionMeta {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.selectionDivider {
+	width: 1px;
+	height: 22px;
+	background: rgba(255, 255, 255, 0.14);
+}
+
+.selectionButton {
+	height: 32px;
+	padding: 0 12px;
+	border: none;
+	border-radius: 10px;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.selectionInsightsButton {
+	background: #4361ee;
+	color: #ffffff;
+}
+
+.selectionActButton {
+	background: #25d366;
+	color: #083a1e;
+}
+
+.selectionClearButton {
+	background: rgba(255, 255, 255, 0.08);
+	color: rgba(255, 255, 255, 0.88);
+}
+
+.deltaWrap {
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+}
+
+.deltaArrowUp {
+	color: #16a34a;
+	font-size: 11px;
+}
+
+.deltaArrowDown {
+	color: #ef4444;
+	font-size: 11px;
+}
+
+@media (max-width: 1024px) {
+	.exploreHeaderRow,
+	.exploreBar,
+	.exploreControlsRow {
+		padding-left: 16px;
+		padding-right: 16px;
+	}
+
+	.exploreHeaderRow {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.exploreSearchWrap {
+		width: 100%;
+	}
+
+	.exploreSearchBox {
+		width: 100%;
+	}
+
+	.exploreControlsRow {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.exploreControlsLeft,
+	.exploreControlsRight {
+		flex-wrap: wrap;
+	}
+}

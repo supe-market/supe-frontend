@@ -1,0 +1,128 @@
+:root {
+  --supe-font-family-base: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --supe-font-size-2xs: 11px;
+  --supe-font-size-xs: 12px;
+  --supe-font-size-sm: 13px;
+  --supe-font-size-md: 14px;
+  --supe-font-size-lg: 15px;
+  --supe-font-size-xl: 20px;
+  --supe-font-size-metric: 29px;
+
+  --supe-font-weight-regular: 400;
+  --supe-font-weight-medium: 500;
+  --supe-font-weight-semibold: 600;
+  --supe-font-weight-bold: 700;
+
+  --supe-line-height-tight: 1;
+  --supe-line-height-snug: 1.05;
+  --supe-line-height-base: 1.4;
+
+  --supe-text-primary: #1f2937;
+  --supe-text-secondary: #475467;
+  --supe-text-muted: #97a1b5;
+  --supe-text-soft: #9ca6bb;
+  --supe-text-inverse: #ffffff;
+  --supe-text-inverse-muted: rgba(255, 255, 255, 0.68);
+  --supe-text-inverse-soft: rgba(255, 255, 255, 0.42);
+
+  --supe-color-blue: #4361ee;
+  --supe-color-blue-soft: #eef4ff;
+  --supe-color-blue-strong: #4463ea;
+  --supe-color-purple: #7c3aed;
+  --supe-color-purple-soft: #f3f1ff;
+  --supe-color-green: #16a34a;
+  --supe-color-green-soft: #f2fbf5;
+  --supe-color-green-strong: #22c55e;
+  --supe-color-amber: #f59e0b;
+  --supe-color-amber-soft: #fff7e8;
+  --supe-color-red: #ef4444;
+  --supe-color-red-soft: #fff5f5;
+  --supe-color-orange: #d97706;
+  --supe-color-slate: #98a2b3;
+
+  --supe-bg-app: #f5f7fb;
+  --supe-bg-page: #f4f7fd;
+  --supe-bg-surface: #ffffff;
+  --supe-bg-surface-subtle: #f8fafc;
+  --supe-bg-surface-soft: #f7f8fc;
+  --supe-bg-sidebar: #0f1117;
+  --supe-bg-sidebar-strong: #151927;
+  --supe-bg-track: #edf1f7;
+  --supe-bg-track-dark: #1d2231;
+
+  --supe-border-subtle: #f1f4f8;
+  --supe-border-default: #e7ebf3;
+  --supe-border-strong: #dce3f1;
+  --supe-border-control: #d7deea;
+
+  --supe-radius-sm: 8px;
+  --supe-radius-md: 10px;
+  --supe-radius-lg: 12px;
+  --supe-radius-xl: 16px;
+  --supe-radius-2xl: 20px;
+  --supe-radius-pill: 999px;
+
+  --supe-space-2xs: 4px;
+  --supe-space-xs: 8px;
+  --supe-space-sm: 10px;
+  --supe-space-md: 12px;
+  --supe-space-lg: 14px;
+  --supe-space-xl: 16px;
+  --supe-space-2xl: 18px;
+  --supe-space-3xl: 20px;
+  --supe-space-4xl: 28px;
+  --supe-space-page-x: 32px;
+  --supe-space-page-y: 20px;
+
+  --supe-control-height-sm: 32px;
+  --supe-control-height-md: 36px;
+  --supe-control-height-lg: 56px;
+  --supe-table-head-height: 46px;
+  --supe-table-row-height: 54px;
+
+  --supe-shadow-card: 0 1px 0 rgba(15, 23, 42, 0.02);
+  --supe-shadow-popover: 0 24px 44px rgba(19, 29, 48, 0.14);
+
+  --supe-transition-fast: 140ms ease;
+  --supe-transition-base: 180ms ease;
+  --supe-transition-layout: 220ms cubic-bezier(.4, 0, .2, 1);
+
+  --supe-text-section-title: var(--supe-font-size-md);
+  --supe-text-section-subtitle: var(--supe-font-size-xs);
+  --supe-text-body: var(--supe-font-size-sm);
+  --supe-text-caption: var(--supe-font-size-2xs);
+
+  --supe-briefing-icon-size: 28px;
+  --supe-briefing-icon-radius: var(--supe-radius-sm);
+  --supe-briefing-header-gap: var(--supe-space-sm);
+  --supe-briefing-section-body-gap: var(--supe-space-sm);
+  --supe-briefing-arrow-color: #b2b9c7;
+  --supe-briefing-icon-muted-color: #9ca3af;
+
+  --supe-quick-action-padding-y: 9px;
+  --supe-quick-action-padding-x: 12px;
+  --supe-quick-action-gap: 7px;
+  --supe-quick-action-radius: var(--supe-radius-lg);
+  --supe-quick-action-icon-size: 17px;
+
+  --supe-quick-action-ask-color: var(--supe-color-blue);
+  --supe-quick-action-ask-bg-hover: rgba(67, 97, 238, 0.08);
+  --supe-quick-action-ask-border-hover: rgba(67, 97, 238, 0.12);
+
+  --supe-quick-action-explore-color: #8b1cfb;
+  --supe-quick-action-explore-bg-hover: rgba(139, 28, 251, 0.08);
+  --supe-quick-action-explore-border-hover: rgba(139, 28, 251, 0.12);
+
+  --supe-quick-action-create-color: #4f46e5;
+  --supe-quick-action-create-bg-hover: rgba(79, 70, 229, 0.08);
+  --supe-quick-action-create-border-hover: rgba(79, 70, 229, 0.12);
+
+  --supe-quick-action-targets-color: #059669;
+  --supe-quick-action-targets-bg-hover: rgba(5, 150, 105, 0.08);
+  --supe-quick-action-targets-border-hover: rgba(5, 150, 105, 0.12);
+
+  --supe-quick-action-trajectory-color: var(--supe-color-orange);
+  --supe-quick-action-trajectory-bg-hover: rgba(217, 119, 6, 0.08);
+  --supe-quick-action-trajectory-border-hover: rgba(217, 119, 6, 0.12);
+}

@@ -1,6 +1,11 @@
 const makeSupeRoute = (screenPath: string) => `/${screenPath}`;
 
 export const supeBaseRoute = '/';
+export const supeBriefingRoute = '/briefing';
+export const supeExploreRoute = '/explore';
+export const supeAskRoute = '/ask';
+export const supeActRoute = '/act';
+export const supeSchemesRoute = '/schemes';
 export const supeSummaryRoute = makeSupeRoute('summary');
 export const supeSalesmanRoute = makeSupeRoute('salesman');
 export const supeRetailerRoute = makeSupeRoute('retailer');
@@ -11,8 +16,14 @@ export const supeTrajectoryRoute = makeSupeRoute('trajectory');
 export const supeCompareRoute = makeSupeRoute('compare');
 export const supeHypothesesRoute = makeSupeRoute('hypotheses');
 export const supeTargetsRoute = makeSupeRoute('targets');
+export const supeImportsRoute = makeSupeRoute('imports');
 
 export const supeAllRoutes = [
+	supeBriefingRoute,
+	supeExploreRoute,
+	supeAskRoute,
+	supeActRoute,
+	supeSchemesRoute,
 	supeSummaryRoute,
 	supeSalesmanRoute,
 	supeRetailerRoute,
@@ -22,8 +33,21 @@ export const supeAllRoutes = [
 	supeTrajectoryRoute,
 	supeCompareRoute,
 	supeHypothesesRoute,
-	supeTargetsRoute
+	supeTargetsRoute,
+	supeImportsRoute
 ];
+
+export const supeExploreEntities = ['salesman', 'retailer', 'sku', 'distributor', 'beat'] as const;
+
+export type SupeExploreEntity = (typeof supeExploreEntities)[number];
+
+export const supeExploreEntityMeta: Record<SupeExploreEntity, { label: string; key: SupeExploreEntity }> = {
+	salesman: { key: 'salesman', label: 'Salesman' },
+	retailer: { key: 'retailer', label: 'Retailer' },
+	sku: { key: 'sku', label: 'SKU' },
+	distributor: { key: 'distributor', label: 'Distributor' },
+	beat: { key: 'beat', label: 'Beat' }
+};
 
 export const supeSidebarMenu = [
 	{
@@ -66,6 +90,12 @@ export const supeSidebarMenu = [
 		key: supeTargetsRoute,
 		label: 'Targets',
 		icon: 'flagSvgIcon',
+		isNew: false
+	},
+	{
+		key: supeImportsRoute,
+		label: 'Imports',
+		icon: 'file',
 		isNew: false
 	}
 ];
@@ -110,5 +140,13 @@ export const supeViewTitleMap: Record<string, { title: string; subtitle: string 
 	[supeTargetsRoute]: {
 		title: 'Targets',
 		subtitle: 'Assign and monitor team-level targets'
+	},
+	[supeImportsRoute]: {
+		title: 'Imports',
+		subtitle: 'Upload and monitor strict Excel data loads'
+	},
+	[supeActRoute]: {
+		title: 'Act',
+		subtitle: 'Create, track, and monitor actions'
 	}
 };

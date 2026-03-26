@@ -103,8 +103,70 @@ export const supeApi = {
   deleteTarget(id: string) {
     return analyticsApi.delete(`/targets/${id}`);
   },
+  uploadImport(formData: FormData) {
+    return analyticsApi.post('/imports', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  listImports(params: Record<string, unknown> = {}) {
+    return analyticsApi.get('/imports', { params });
+  },
+  getImport(id: string | number) {
+    return analyticsApi.get(`/imports/${id}`);
+  },
+  downloadImportTemplate() {
+    return analyticsApi.get('/imports/template', { responseType: 'blob' });
+  },
   getSignals(params: Record<string, unknown> = {}) {
     return analyticsApi.get('/signals', { params });
+  },
+  getSignalConfig() {
+    return analyticsApi.get('/signals/config');
+  },
+  updateSignalDefaults(defaults: any[]) {
+    return analyticsApi.put('/signals/config/defaults', { defaults });
+  },
+  updateSignalOverrides(payload: { overrides: any[]; replaceSignalDefinitionIds?: number[] }) {
+    return analyticsApi.put('/signals/config/overrides', payload);
+  },
+  resetSignalConfig() {
+    return analyticsApi.post('/signals/config/reset');
+  },
+  evaluateSignals() {
+    return analyticsApi.post('/signals/evaluate');
+  },
+  getActionsDashboard() {
+    return analyticsApi.get('/actions/dashboard');
+  },
+  listActions(params: Record<string, unknown> = {}) {
+    return analyticsApi.get('/actions', { params });
+  },
+  getAction(id: string | number) {
+    return analyticsApi.get(`/actions/${id}`);
+  },
+  createAction(payload: Record<string, any>) {
+    return analyticsApi.post('/actions', payload);
+  },
+  updateAction(id: string | number, payload: Record<string, any>) {
+    return analyticsApi.patch(`/actions/${id}`, payload);
+  },
+  appendActionEvent(id: string | number, payload: Record<string, any>) {
+    return analyticsApi.post(`/actions/${id}/events`, payload);
+  },
+  getActionLog() {
+    return analyticsApi.get('/action-log');
+  },
+  listTasks() {
+    return analyticsApi.get('/tasks');
+  },
+  createTask(payload: Record<string, any>) {
+    return analyticsApi.post('/tasks', payload);
+  },
+  updateTask(id: string | number, payload: Record<string, any>) {
+    return analyticsApi.patch(`/tasks/${id}`, payload);
+  },
+  deleteTask(id: string | number) {
+    return analyticsApi.delete(`/tasks/${id}`);
   }
 };
 

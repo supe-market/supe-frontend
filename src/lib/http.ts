@@ -19,5 +19,11 @@ export const analyticsApi = axios.create({
   withCredentials: true
 });
 
+export const askApi = axios.create({
+  baseURL: env.askApiUrl,
+  withCredentials: true
+});
+
 umsApi.interceptors.request.use(withAppTypeHeader);
 analyticsApi.interceptors.request.use(withAppTypeHeader);
+askApi.interceptors.request.use(withAppTypeHeader);

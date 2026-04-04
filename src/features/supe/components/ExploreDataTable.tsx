@@ -37,7 +37,7 @@ type ExploreDataTableProps<T extends Record<string, any>> = {
 	groupBy: string;
 	groupByOptions: ExploreOption[];
 	onGroupByChange: (value: string) => void;
-	onExport?: () => void;
+	exportFileName?: string;
 	onInsights?: (entity: T, isAggregate?: boolean, groupLabel?: string) => void;
 	onAction?: (entity: T) => void;
 	onBulkAction?: (entities: T[]) => void;
@@ -58,6 +58,24 @@ function safeString(value: unknown): string {
 
 function getDerivedNumericValue(value: unknown): number | null {
 	return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function toExportCellValue(value: unknown): string | number {
+	if (value === null || value === undefined) {
+		return '';
+	}
+	if (typeof value === 'number') {
+		return value;
+	}
+	if (typeof value === 'boolean') {
+		return value ? 'true' : 'false';
+	}
+	return String(value);
+}
+
+function escapeCsvCell(value: unknown): string {
+	const normalized = String(toExportCellValue(value)).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+	return `"${normalized.replace(/"/g, '""')}"`;
 }
 
 function ColumnPicker<T extends Record<string, any>>({
@@ -170,7 +188,7 @@ export default function ExploreDataTable<T extends Record<string, any>>({
 	groupBy,
 	groupByOptions,
 	onGroupByChange,
-	onExport,
+	exportFileName,
 	onInsights,
 	onAction,
 	onBulkAction,
@@ -427,6 +445,35 @@ export default function ExploreDataTable<T extends Record<string, any>>({
 	const groupNames = Object.keys(groupedData).filter(Boolean);
 	const allGroupsCollapsed = groupNames.length > 0 && groupNames.every((group) => collapsedGroups.has(group));
 	const allGroupsExpanded = groupNames.length > 0 && groupNames.every((group) => !collapsedGroups.has(group));
+	const groupByLabel = useMemo(
+		() => groupByOptions.find((option) => option.value === groupBy)?.label || 'Group',
+		[groupBy, groupByOptions]
+	);
+
+	const handleExport = useCallback(() => {
+		if (!exportFileName) {
+			return;
+		}
+
+		const header = [...(groupBy ? [groupByLabel] : []), ...visibleColumns.map((column) => column.label)];
+		const rowsForExport = Object.entries(groupedData).flatMap(([groupName, rows]) =>
+			rows.map((row) => [
+				...(groupBy ? [groupName] : []),
+				...visibleColumns.map((column) => {
+					const value = column.sortValue ? column.sortValue(row) : row[column.key];
+					return toExportCellValue(value);
+				})
+			])
+		);
+		const csv = [header, ...rowsForExport].map((row) => row.map(escapeCsvCell).join(',')).join('\n');
+		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = exportFileName;
+		link.click();
+		URL.revokeObjectURL(url);
+	}, [exportFileName, groupBy, groupByLabel, groupedData, visibleColumns]);
 
 	return (
 		<div className={styles.exploreTableShell}>
@@ -475,8 +522,8 @@ export default function ExploreDataTable<T extends Record<string, any>>({
 						onReset={resetColumns}
 						hasCustomSelection={hasCustomSelection}
 					/>
-					{onExport ? (
-						<button type="button" className={styles.tableControlButton} onClick={onExport}>
+					{exportFileName ? (
+						<button type="button" className={styles.tableControlButton} onClick={handleExport}>
 							<DownloadOutlined />
 							Export
 						</button>

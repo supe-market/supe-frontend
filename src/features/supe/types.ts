@@ -90,3 +90,55 @@ export interface ISupeTarget {
 	scopeValue: string;
 	status: 'active' | 'paused' | 'completed';
 }
+
+export interface ISupeAskThread {
+	id: string;
+	title: string;
+	created_at: string;
+	updated_at: string;
+	latest_run_status?: string | null;
+	latest_question?: string | null;
+}
+
+export interface ISupeAskMessage {
+	id: string;
+	thread_id: string;
+	role: 'user' | 'assistant';
+	content: string;
+	run_id?: string | null;
+	created_at: string;
+}
+
+export interface ISupeAskArtifact {
+	id: string;
+	run_id: string;
+	artifact_type: 'markdown' | 'metric' | 'table' | 'plotly' | 'log' | string;
+	title: string;
+	payload: Record<string, any>;
+	ordinal: number;
+	created_at: string;
+}
+
+export interface ISupeAskRun {
+	id: string;
+	thread_id: string;
+	message_id: string;
+	question: string;
+	status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+	title?: string | null;
+	assistant_summary?: string | null;
+	python_code?: string | null;
+	retrieval_context?: Record<string, any> | null;
+	artifact_plan?: Record<string, any> | null;
+	error_message?: string | null;
+	created_at: string;
+	updated_at: string;
+	completed_at?: string | null;
+}
+
+export interface ISupeAskEvent {
+	id: number;
+	eventType: string;
+	payload: Record<string, any>;
+	createdAt?: string | null;
+}

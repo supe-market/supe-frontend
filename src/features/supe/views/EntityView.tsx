@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Drawer, Spin, Table, Tag, message } from 'antd';
+import { Button, Drawer, Spin, Table, Tag } from 'antd';
 import {
 	CloseOutlined,
 	EnvironmentOutlined,
@@ -66,16 +66,6 @@ function getPrimaryMetricKey(entityType: ExploreEntityType) {
 
 function getTimeLabel(value: string) {
 	return TIME_OPTIONS.find((option) => option.value === value)?.label || value;
-}
-
-function toCsvValue(value: unknown) {
-	if (value === null || value === undefined) {
-		return '';
-	}
-	if (typeof value === 'number' || typeof value === 'boolean') {
-		return String(value);
-	}
-	return JSON.stringify(String(value));
 }
 
 export function EntityView({ entityType, title }: IEntityViewProps) {
@@ -192,29 +182,6 @@ export function EntityView({ entityType, title }: IEntityViewProps) {
 		setActionDrawerOpen(true);
 	};
 
-	const exportCsv = () => {
-		try {
-			const header = columns.map((column) => column.label).join(',');
-			const body = presentedRows.map((row) =>
-				columns
-					.map((column) => {
-						const value = column.sortValue ? column.sortValue(row) : row[column.key];
-						return toCsvValue(value);
-					})
-					.join(',')
-			);
-			const blob = new Blob([[header, ...body].join('\n')], { type: 'text/csv;charset=utf-8;' });
-			const url = URL.createObjectURL(blob);
-			const link = document.createElement('a');
-			link.href = url;
-			link.download = `${entityType}-diagnostics.csv`;
-			link.click();
-			URL.revokeObjectURL(url);
-		} catch {
-			message.error('Failed to export CSV');
-		}
-	};
-
 	return (
 		<div className={exploreStyles.explorePage}>
 			<div className={exploreStyles.exploreHeaderRow}>
@@ -268,7 +235,7 @@ export function EntityView({ entityType, title }: IEntityViewProps) {
 					groupBy={groupBy}
 					groupByOptions={GROUP_OPTIONS}
 					onGroupByChange={setGroupBy}
-					onExport={exportCsv}
+					exportFileName={`${entityType}-${timeWindow}-explore.csv`}
 					onInsights={async (row) => {
 						setSelectedInsightRow(row);
 						setInsightLoading(true);

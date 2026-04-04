@@ -1,3 +1,6 @@
+/**
+ * Top-level route tree for the Supe frontend.
+ */
 import { Suspense, lazy, type ReactNode } from 'react';
 import { Spin } from 'antd';
 import { Navigate, Route, Routes } from 'react-router-dom';
@@ -78,6 +81,7 @@ const ImportsView = lazy(() =>
 );
 
 function RouteLoading() {
+  /** Small shared loading shell while route-level bundles are still loading. */
   return (
     <div style={{ minHeight: '50vh', display: 'grid', placeItems: 'center' }}>
       <Spin size="large" />
@@ -86,10 +90,12 @@ function RouteLoading() {
 }
 
 function withSuspense(element: ReactNode) {
+  /** Wrap lazy route elements in the standard loading fallback. */
   return <Suspense fallback={<RouteLoading />}>{element}</Suspense>;
 }
 
 export function App() {
+  /** Register public auth routes and the protected Supe application shell. */
   return (
     <Routes>
       <Route path="/signin" element={<SignInPage />} />

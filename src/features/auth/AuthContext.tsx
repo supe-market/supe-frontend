@@ -1,3 +1,10 @@
+/**
+ * Frontend auth/session state for Supe.
+ *
+ * The app needs both analytics and Ask cookies to be present, so the auth
+ * provider bootstraps and refreshes both before exposing an authenticated state
+ * to the routed UI.
+ */
 import {
   PropsWithChildren,
   createContext,
@@ -11,10 +18,13 @@ import { env } from '../../lib/env';
 import {
   AUTH_SUCCESS_CODES,
   authenticateUser,
+  clearAskCookie,
   clearAnalyticsCookie,
+  createAskCookie,
   createAnalyticsCookie,
   loginUser,
   logoutAuthService,
+  validateAskCookie,
   validateAnalyticsCookie
 } from './auth-api';
 
@@ -31,10 +41,12 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function createOauthState() {
+  /** Create a simple per-attempt OAuth state token. */
   return `supe-${Date.now()}`;
 }
 
 function buildLoginIdentifier(identifier: string) {
+  /** Normalize login input into the UMS payload shape. */
   const trimmed = identifier.trim();
   if (trimmed.includes('@')) {
     return { email: trimmed, userLoginType: 'supe' as const };
@@ -43,23 +55,44 @@ function buildLoginIdentifier(identifier: string) {
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  /** Own auth bootstrap, refresh, login, and logout for the React app. */
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [error, setError] = useState('');
 
   const establishSession = useCallback(async (oauthCode?: string) => {
+    /** Create or validate both service cookies once an oauthCode is available. */
     if (oauthCode) {
       await createAnalyticsCookie(oauthCode);
+      await createAskCookie(oauthCode);
       return;
     }
     await validateAnalyticsCookie();
+    await validateAskCookie();
+  }, []);
+
+  const bootstrapAskCookie = useCallback(async () => {
+    /** Recover only the Ask cookie when analytics is still valid but Ask is not. */
+    const { data } = await authenticateUser(createOauthState(), env.clientId, env.redirectUrl);
+    const oauthCode = data?.responseBody?.oauthCode as string | undefined;
+    if (AUTH_SUCCESS_CODES.has(String(data?.responseCode)) && oauthCode) {
+      await createAskCookie(oauthCode);
+      return;
+    }
+    throw new Error('Failed to bootstrap Ask session');
   }, []);
 
   const refresh = useCallback(async () => {
+    /** Re-establish the frontend session by validating or re-creating cookies. */
     try {
       setError('');
       setStatus('loading');
       try {
         await validateAnalyticsCookie();
+        try {
+          await validateAskCookie();
+        } catch (_askError) {
+          await bootstrapAskCookie();
+        }
         setStatus('authenticated');
         return;
       } catch (_error) {
@@ -74,10 +107,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
       setStatus('unauthenticated');
-    } catch (_error) {
+    } catch (refreshError: any) {
+      setError(refreshError?.response?.data?.detail || refreshError?.message || 'Failed to establish session');
       setStatus('unauthenticated');
     }
-  }, [establishSession]);
+  }, [bootstrapAskCookie, establishSession]);
 
   useEffect(() => {
     refresh();
@@ -85,6 +119,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const login = useCallback(
     async (identifier: string, password: string) => {
+      /** Run the auth-service login flow, then bootstrap both cookies. */
       setError('');
       const bootstrap = await authenticateUser(createOauthState(), env.clientId, env.redirectUrl);
       const bootstrapBody = bootstrap.data?.responseBody ?? {};
@@ -110,8 +145,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const logout = useCallback(async () => {
+    /** Clear cookies locally and terminate the upstream auth-service session. */
     setError('');
-    await Promise.allSettled([logoutAuthService(), clearAnalyticsCookie()]);
+    await Promise.allSettled([logoutAuthService(), clearAnalyticsCookie(), clearAskCookie()]);
     setStatus('unauthenticated');
   }, []);
 
@@ -138,6 +174,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 }
 
 export function useAuth() {
+  /** Read the current auth context inside the routed app. */
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider');

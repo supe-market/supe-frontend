@@ -1,10 +1,19 @@
-import { analyticsApi } from '../../lib/http';
+/**
+ * Frontend API wrapper for analytics and Ask endpoints.
+ *
+ * The UI treats this as its boundary: analytics requests go to the Node service
+ * while Ask requests go to the Python control plane.
+ */
+import { analyticsApi, askApi } from '../../lib/http';
+import { env } from '../../lib/env';
 
 function normalizeGoalMetric(metric: string) {
+  /** Smooth over a frontend/backend naming mismatch for target metrics. */
   return metric === 'coverage_pct' ? 'coverage' : metric;
 }
 
 export const supeApi = {
+  /** Ask/thread helpers live alongside analytics APIs so views import one client. */
   getObserveSummary(params: Record<string, unknown> = {}) {
     return analyticsApi.get('/observe/summary', { params });
   },
@@ -167,6 +176,26 @@ export const supeApi = {
   },
   deleteTask(id: string | number) {
     return analyticsApi.delete(`/tasks/${id}`);
+  },
+  listAskThreads() {
+    return askApi.get('/ask/threads');
+  },
+  createAskThread(payload: Record<string, any> = {}) {
+    return askApi.post('/ask/threads', payload);
+  },
+  getAskThread(threadId: string) {
+    return askApi.get(`/ask/threads/${threadId}`);
+  },
+  createAskMessage(threadId: string, payload: { question: string }) {
+    return askApi.post(`/ask/threads/${threadId}/messages`, payload);
+  },
+  cancelAskRun(runId: string) {
+    return askApi.post(`/ask/runs/${runId}/cancel`);
+  },
+  buildAskRunEventsUrl(runId: string) {
+    /** Build the absolute SSE URL used by the Ask event stream. */
+    const baseUrl = env.askApiUrl.replace(/\/$/, '');
+    return `${baseUrl}/ask/runs/${runId}/events`;
   }
 };
 

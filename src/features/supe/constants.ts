@@ -133,6 +133,10 @@ export const supeViewTitleMap: Record<string, { title: string; subtitle: string 
 		title: 'Compare',
 		subtitle: 'Multi-entity analytical comparison'
 	},
+	[supeAskRoute]: {
+		title: 'Ask',
+		subtitle: 'Threaded analytical workspace with reports and code'
+	},
 	[supeHypothesesRoute]: {
 		title: 'Hypotheses',
 		subtitle: 'Ask strategic questions and test assumptions'

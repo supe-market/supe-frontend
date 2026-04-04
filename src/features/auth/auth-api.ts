@@ -1,4 +1,4 @@
-import { analyticsApi, umsApi } from '../../lib/http';
+import { analyticsApi, askApi, umsApi } from '../../lib/http';
 
 export const AUTH_SUCCESS_CODES = new Set(['000012', '000006']);
 
@@ -35,8 +35,18 @@ export function createAnalyticsCookie(oauthCode: string) {
   });
 }
 
+export function createAskCookie(oauthCode: string) {
+  return askApi.get('/cookie', {
+    params: { oauthCode }
+  });
+}
+
 export function validateAnalyticsCookie() {
   return analyticsApi.get('/cookie');
+}
+
+export function validateAskCookie() {
+  return askApi.get('/cookie');
 }
 
 export function logoutAuthService() {
@@ -45,4 +55,8 @@ export function logoutAuthService() {
 
 export function clearAnalyticsCookie() {
   return analyticsApi.delete('/cookie');
+}
+
+export function clearAskCookie() {
+  return askApi.delete('/cookie');
 }

@@ -1,3 +1,9 @@
+/**
+ * Main authenticated application shell for the Supe frontend.
+ *
+ * This component owns the persistent navigation chrome, period context card,
+ * action-log drawer, and the routed content outlet.
+ */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Button, Drawer } from 'antd';
 import {
@@ -51,6 +57,7 @@ const DESKTOP_SIDEBAR_WIDTH = 220;
 const COLLAPSED_SIDEBAR_WIDTH = 56;
 
 function SupeLogoSmall({ size = 32 }: { size?: number }) {
+  /** Compact brand mark used in the sidebar and mobile drawer. */
   const id = 'supe-layout-sm';
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -78,6 +85,7 @@ function SupeLogoSmall({ size = 32 }: { size?: number }) {
 }
 
 function getFiscalQuarterLabel(date: Date) {
+  /** Render the current fiscal quarter label used in the sidebar period card. */
   const month = date.getMonth();
   const fiscalQuarter = Math.floor((((month - 3 + 12) % 12) / 3)) + 1;
   const fiscalYear = month >= 3 ? date.getFullYear() + 1 : date.getFullYear();
@@ -85,6 +93,7 @@ function getFiscalQuarterLabel(date: Date) {
 }
 
 export function SupeLayout() {
+  /** Render the persistent shell around all protected Supe routes. */
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -122,6 +131,7 @@ export function SupeLayout() {
   const sidebarWidth = collapsed ? COLLAPSED_SIDEBAR_WIDTH : DESKTOP_SIDEBAR_WIDTH;
 
   useEffect(() => {
+    // Persist the desktop sidebar preference across reloads.
     try {
       window.localStorage.setItem('supe_sidebar', collapsed ? 'collapsed' : 'expanded');
     } catch {
@@ -130,6 +140,8 @@ export function SupeLayout() {
   }, [collapsed]);
 
   useEffect(() => {
+    // The action-log badge is shared UI state, so the shell owns the polling and
+    // the custom event listener used by feature views after mutations.
     let active = true;
     const loadActionLogCount = async () => {
       try {

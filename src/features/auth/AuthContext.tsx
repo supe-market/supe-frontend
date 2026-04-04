@@ -27,6 +27,7 @@ import {
   validateAskCookie,
   validateAnalyticsCookie
 } from './auth-api';
+import { resetSessionExpiredSignal, SESSION_EXPIRED_EVENT } from './session-events';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         } catch (_askError) {
           await bootstrapAskCookie();
         }
+        resetSessionExpiredSignal();
         setStatus('authenticated');
         return;
       } catch (_error) {
@@ -103,6 +105,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const oauthCode = data?.responseBody?.oauthCode as string | undefined;
       if (AUTH_SUCCESS_CODES.has(String(data?.responseCode))) {
         await establishSession(oauthCode);
+        resetSessionExpiredSignal();
         setStatus('authenticated');
         return;
       }
@@ -116,6 +119,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setError('Session expired. Please sign in again.');
+      setStatus('unauthenticated');
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    };
+  }, []);
 
   const login = useCallback(
     async (identifier: string, password: string) => {
@@ -139,6 +154,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         throw new Error('Login succeeded but oauthCode was not returned');
       }
       await establishSession(oauthCode);
+      resetSessionExpiredSignal();
       setStatus('authenticated');
     },
     [establishSession]
@@ -148,6 +164,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     /** Clear cookies locally and terminate the upstream auth-service session. */
     setError('');
     await Promise.allSettled([logoutAuthService(), clearAnalyticsCookie(), clearAskCookie()]);
+    resetSessionExpiredSignal();
     setStatus('unauthenticated');
   }, []);
 

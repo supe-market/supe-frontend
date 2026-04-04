@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { env } from './env';
+import { emitSessionExpired } from '../features/auth/session-events';
 
 function withAppTypeHeader(request: any) {
   if (env.appType) {
@@ -27,3 +28,15 @@ export const askApi = axios.create({
 umsApi.interceptors.request.use(withAppTypeHeader);
 analyticsApi.interceptors.request.use(withAppTypeHeader);
 askApi.interceptors.request.use(withAppTypeHeader);
+
+function handleAuthFailure(error: any) {
+  const status = Number(error?.response?.status || 0);
+  if (status === 401 || status === 403) {
+    emitSessionExpired();
+  }
+  return Promise.reject(error);
+}
+
+umsApi.interceptors.response.use((response) => response, handleAuthFailure);
+analyticsApi.interceptors.response.use((response) => response, handleAuthFailure);
+askApi.interceptors.response.use((response) => response, handleAuthFailure);

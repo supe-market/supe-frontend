@@ -71,6 +71,7 @@ export function ImportsView() {
   const [uploading, setUploading] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const selectedErrors = useMemo(() => selectedBatch?.errors || [], [selectedBatch]);
 
@@ -153,10 +154,7 @@ export function ImportsView() {
   };
 
   const handleUpload = async () => {
-    // beforeUpload stores the raw File directly in fileList, so it may live
-    // on either originFileObj (when antd wrapped it) or as the entry itself.
-    const entry: any = fileList[0];
-    const uploadFile: File | undefined = entry?.originFileObj || (entry instanceof File ? entry : entry);
+    const uploadFile = pendingFile;
     if (!uploadFile) {
       message.error('Select an .xlsx file first');
       return;
@@ -169,6 +167,7 @@ export function ImportsView() {
       const response = await supeApi.uploadImport(formData);
       const batchId = Number(response?.data?.data?.batchId || 0);
       setFileList([]);
+      setPendingFile(null);
       await loadImports(batchId || null);
       if (batchId) {
         await loadBatch(batchId);
@@ -211,12 +210,22 @@ export function ImportsView() {
             accept=".xlsx"
             multiple={false}
             beforeUpload={(file) => {
-              setFileList([file]);
+              setPendingFile(file);
+              setFileList([
+                {
+                  uid: String(file.uid || file.name),
+                  name: file.name,
+                  status: 'done',
+                  size: file.size,
+                  type: file.type
+                } as UploadFile
+              ]);
               return false;
             }}
             fileList={fileList}
             onRemove={() => {
               setFileList([]);
+              setPendingFile(null);
               return true;
             }}
             style={{ background: '#fff' }}

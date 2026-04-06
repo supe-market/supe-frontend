@@ -8,8 +8,8 @@ export function RequireAuth() {
 
   if (status === 'loading') {
     return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <Spin size="large" />
+      <div style={{ padding: 24, display: 'flex', justifyContent: 'center' }}>
+        <Spin />
       </div>
     );
   }

@@ -63,12 +63,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const establishSession = useCallback(async (oauthCode?: string) => {
     /** Create or validate both service cookies once an oauthCode is available. */
     if (oauthCode) {
-      await createAnalyticsCookie(oauthCode);
-      await createAskCookie(oauthCode);
+      await Promise.all([createAnalyticsCookie(oauthCode), createAskCookie(oauthCode)]);
       return;
     }
-    await validateAnalyticsCookie();
-    await validateAskCookie();
+    await Promise.all([validateAnalyticsCookie(), validateAskCookie()]);
   }, []);
 
   const bootstrapAskCookie = useCallback(async () => {
@@ -88,10 +86,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setError('');
       setStatus('loading');
       try {
-        await validateAnalyticsCookie();
-        try {
-          await validateAskCookie();
-        } catch (_askError) {
+        const [analyticsResult, askResult] = await Promise.allSettled([
+          validateAnalyticsCookie(),
+          validateAskCookie()
+        ]);
+        if (analyticsResult.status === 'rejected') {
+          throw analyticsResult.reason;
+        }
+        if (askResult.status === 'rejected') {
           await bootstrapAskCookie();
         }
         resetSessionExpiredSignal();

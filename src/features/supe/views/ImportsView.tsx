@@ -153,7 +153,10 @@ export function ImportsView() {
   };
 
   const handleUpload = async () => {
-    const uploadFile = fileList[0]?.originFileObj;
+    // beforeUpload stores the raw File directly in fileList, so it may live
+    // on either originFileObj (when antd wrapped it) or as the entry itself.
+    const entry: any = fileList[0];
+    const uploadFile: File | undefined = entry?.originFileObj || (entry instanceof File ? entry : entry);
     if (!uploadFile) {
       message.error('Select an .xlsx file first');
       return;

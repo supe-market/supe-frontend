@@ -88,9 +88,9 @@ export function ImportsView() {
 
   const selectedErrors = useMemo(() => selectedBatch?.errors || [], [selectedBatch]);
 
-  const loadImports = async (preferredBatchId?: number | null) => {
+  const loadImports = async (preferredBatchId?: number | null, options: { silent?: boolean } = {}) => {
     try {
-      setLoadingList(true);
+      if (!options.silent) setLoadingList(true);
       const response = await supeApi.listImports({ limit: 20 });
       const batches = response?.data?.data || [];
       setImports(batches);
@@ -99,28 +99,28 @@ export function ImportsView() {
         preferredBatchId ?? selectedBatchId ?? (batches.length ? Number(batches[0].id) : null);
       setSelectedBatchId(nextSelectedId);
       if (nextSelectedId) {
-        void loadBatch(nextSelectedId);
+        void loadBatch(nextSelectedId, { silent: options.silent });
       } else {
         setSelectedBatch(null);
       }
     } catch (error: any) {
-      message.error(error?.response?.data?.message || 'Failed to load imports');
+      if (!options.silent) message.error(error?.response?.data?.message || 'Failed to load imports');
     } finally {
-      setLoadingList(false);
+      if (!options.silent) setLoadingList(false);
     }
   };
 
-  const loadBatch = async (batchId: number) => {
+  const loadBatch = async (batchId: number, options: { silent?: boolean } = {}) => {
     try {
-      setLoadingDetail(true);
+      if (!options.silent) setLoadingDetail(true);
       const response = await supeApi.getImport(batchId);
       const batch = response?.data?.data;
       setSelectedBatch(batch);
       setImports((current) => current.map((row) => (Number(row.id) === Number(batchId) ? { ...row, ...batch } : row)));
     } catch (error: any) {
-      message.error(error?.response?.data?.message || 'Failed to load import details');
+      if (!options.silent) message.error(error?.response?.data?.message || 'Failed to load import details');
     } finally {
-      setLoadingDetail(false);
+      if (!options.silent) setLoadingDetail(false);
     }
   };
 
@@ -137,8 +137,8 @@ export function ImportsView() {
     }
 
     const intervalId = window.setInterval(() => {
-      void loadBatch(selectedBatchId);
-      void loadImports(selectedBatchId);
+      void loadBatch(selectedBatchId, { silent: true });
+      void loadImports(selectedBatchId, { silent: true });
     }, 3000);
 
     return () => {

@@ -112,9 +112,10 @@ export const supeApi = {
   deleteTarget(id: string) {
     return analyticsApi.delete(`/targets/${id}`);
   },
-  uploadImport(formData: FormData) {
+  uploadImport(formData: FormData, onUploadProgress?: (event: { loaded: number; total?: number }) => void) {
     return analyticsApi.post('/imports', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress
     });
   },
   listImports(params: Record<string, unknown> = {}) {

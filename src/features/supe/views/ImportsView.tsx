@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { UploadFile } from 'antd/es/upload/interface';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -7,14 +6,19 @@ import {
   Descriptions,
   Empty,
   message,
+  Progress,
   Space,
   Spin,
   Table,
   Tag,
-  Typography,
-  Upload
+  Typography
 } from 'antd';
-import { DownloadOutlined, InboxOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import {
+  CheckCircleFilled,
+  CloudUploadOutlined,
+  DownloadOutlined,
+  ReloadOutlined
+} from '@ant-design/icons';
 import supeApi from '../api';
 
 type ImportErrorRow = {
@@ -62,6 +66,13 @@ function formatDateTime(value?: string | null) {
   }
 }
 
+function formatBytes(bytes: number) {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
 export function ImportsView() {
   const [imports, setImports] = useState<ImportBatchRow[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
@@ -69,9 +80,11 @@ export function ImportsView() {
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: number } | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedErrors = useMemo(() => selectedBatch?.errors || [], [selectedBatch]);
 
@@ -153,101 +166,192 @@ export function ImportsView() {
     }
   };
 
-  const handleUpload = async () => {
-    const uploadFile = pendingFile;
-    if (!uploadFile) {
-      message.error('Select an .xlsx file first');
-      return;
-    }
-
-    try {
+  const startUpload = useCallback(
+    async (file: File) => {
+      if (!file.name.toLowerCase().endsWith('.xlsx')) {
+        message.error('Only .xlsx files are accepted');
+        return;
+      }
+      setUploadedFile({ name: file.name, size: file.size });
       setUploading(true);
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-      const response = await supeApi.uploadImport(formData);
-      const batchId = Number(response?.data?.data?.batchId || 0);
-      setFileList([]);
-      setPendingFile(null);
-      await loadImports(batchId || null);
-      if (batchId) {
-        await loadBatch(batchId);
+      setUploadProgress(0);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await supeApi.uploadImport(formData, (event) => {
+          if (event.total) {
+            setUploadProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        });
+        setUploadProgress(100);
+        const batchId = Number(response?.data?.data?.batchId || 0);
+        await loadImports(batchId || null);
+        if (batchId) {
+          await loadBatch(batchId);
+        }
+        message.success('Import queued');
+      } catch (error: any) {
+        const batchId = Number(error?.response?.data?.batchId || 0);
+        if (batchId) {
+          setSelectedBatchId(batchId);
+          await loadImports(batchId);
+          await loadBatch(batchId);
+        }
+        message.error(error?.response?.data?.message || 'Import upload failed');
+      } finally {
+        setUploading(false);
+        // Reset input so the same filename can be picked again.
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
-      message.success('Import queued');
-    } catch (error: any) {
-      const batchId = Number(error?.response?.data?.batchId || 0);
-      if (batchId) {
-        setSelectedBatchId(batchId);
-        await loadImports(batchId);
-        await loadBatch(batchId);
-      }
-      message.error(error?.response?.data?.message || 'Import upload failed');
-    } finally {
-      setUploading(false);
-    }
+    },
+    []
+  );
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) void startUpload(file);
   };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) void startUpload(file);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+  };
+
+  const triggerFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const dropzoneBorder = isDragging ? '#1677ff' : uploading ? '#1677ff' : '#d9d9d9';
+  const dropzoneBg = isDragging ? '#e6f4ff' : '#fafafa';
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <Card>
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <div>
-            <Typography.Title level={4} style={{ marginBottom: 4 }}>
-              Strict Excel Import
-            </Typography.Title>
-            <Typography.Text type="secondary">
-              Upload only the finalized <code>orders_book</code> <code>.xlsx</code> template. CSV, XLS, and alternate sheet names are not supported.
-            </Typography.Text>
+        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 320px' }}>
+              <Typography.Title level={4} style={{ marginBottom: 4 }}>
+                Strict Excel Import
+              </Typography.Title>
+              <Typography.Text type="secondary">
+                Drop an <code>orders_book</code> <code>.xlsx</code> file to upload it instantly. CSV, XLS, and alternate sheet names are not supported.
+              </Typography.Text>
+            </div>
+            <Space wrap>
+              <Button
+                icon={<DownloadOutlined />}
+                loading={downloadingTemplate}
+                onClick={() => void handleTemplateDownload()}
+                style={{ cursor: 'pointer' }}
+              >
+                Download Template
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => void loadImports(selectedBatchId)}
+                style={{ cursor: 'pointer' }}
+              >
+                Refresh
+              </Button>
+            </Space>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+            aria-label="Select an .xlsx file to import"
+          />
+
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={uploading ? undefined : triggerFilePicker}
+            onKeyDown={(e) => {
+              if (uploading) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                triggerFilePicker();
+              }
+            }}
+            onDrop={uploading ? undefined : handleDrop}
+            onDragOver={uploading ? undefined : handleDragOver}
+            onDragLeave={uploading ? undefined : handleDragLeave}
+            style={{
+              border: `2px dashed ${dropzoneBorder}`,
+              borderRadius: 12,
+              background: dropzoneBg,
+              padding: '40px 24px',
+              textAlign: 'center',
+              cursor: uploading ? 'progress' : 'pointer',
+              transition: 'border-color 200ms ease, background 200ms ease',
+              outline: 'none'
+            }}
+          >
+            {uploading && uploadedFile ? (
+              <Space direction="vertical" size={12} style={{ width: '100%', maxWidth: 480, margin: '0 auto' }}>
+                <CloudUploadOutlined style={{ fontSize: 40, color: '#1677ff' }} />
+                <Typography.Text strong style={{ display: 'block' }}>
+                  Uploading {uploadedFile.name}
+                </Typography.Text>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {formatBytes(uploadedFile.size)}
+                </Typography.Text>
+                <Progress percent={uploadProgress} status={uploadProgress >= 100 ? 'success' : 'active'} />
+                {uploadProgress >= 100 && (
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Server is validating the template…
+                  </Typography.Text>
+                )}
+              </Space>
+            ) : uploadedFile ? (
+              <Space direction="vertical" size={8}>
+                <CheckCircleFilled style={{ fontSize: 40, color: '#52c41a' }} />
+                <Typography.Text strong>{uploadedFile.name}</Typography.Text>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  Uploaded · {formatBytes(uploadedFile.size)}
+                </Typography.Text>
+                <Typography.Link onClick={(e) => { e.stopPropagation(); triggerFilePicker(); }}>
+                  Upload another file
+                </Typography.Link>
+              </Space>
+            ) : (
+              <Space direction="vertical" size={8}>
+                <CloudUploadOutlined style={{ fontSize: 48, color: isDragging ? '#1677ff' : '#8c8c8c' }} />
+                <Typography.Text strong style={{ fontSize: 16 }}>
+                  {isDragging ? 'Drop to upload' : 'Drop your .xlsx file here'}
+                </Typography.Text>
+                <Typography.Text type="secondary">
+                  or <Typography.Link>click to browse</Typography.Link>
+                </Typography.Text>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  Upload starts automatically
+                </Typography.Text>
+              </Space>
+            )}
           </div>
 
           <Alert
             type="info"
             showIcon
-            message="Upload contract"
-            description="The importer validates the template header during upload, then processes rows asynchronously in the background."
+            message="The importer validates the template header on upload, then processes rows asynchronously in the background."
           />
-
-          <Upload.Dragger
-            accept=".xlsx"
-            multiple={false}
-            beforeUpload={(file) => {
-              setPendingFile(file);
-              setFileList([
-                {
-                  uid: String(file.uid || file.name),
-                  name: file.name,
-                  status: 'done',
-                  size: file.size,
-                  type: file.type
-                } as UploadFile
-              ]);
-              return false;
-            }}
-            fileList={fileList}
-            onRemove={() => {
-              setFileList([]);
-              setPendingFile(null);
-              return true;
-            }}
-            style={{ background: '#fff' }}
-          >
-            <p className="ant-upload-drag-icon">
-              <InboxOutlined />
-            </p>
-            <p className="ant-upload-text">Drop an .xlsx file here or click to select</p>
-            <p className="ant-upload-hint">Only the strict customer data template is accepted.</p>
-          </Upload.Dragger>
-
-          <Space wrap>
-            <Button icon={<DownloadOutlined />} loading={downloadingTemplate} onClick={() => void handleTemplateDownload()}>
-              Download Template
-            </Button>
-            <Button type="primary" icon={<UploadOutlined />} loading={uploading} onClick={() => void handleUpload()}>
-              Upload Import
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={() => void loadImports(selectedBatchId)}>
-              Refresh
-            </Button>
-          </Space>
         </Space>
       </Card>
 

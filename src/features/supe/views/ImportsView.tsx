@@ -43,18 +43,41 @@ type ImportBatchRow = {
   startedAt?: string | null;
   completedAt?: string | null;
   createdAt?: string | null;
+  refreshJobId?: number | null;
+  refreshStatus?: string | null;
+  refreshRequestedAt?: string | null;
+  refreshStartedAt?: string | null;
+  refreshCompletedAt?: string | null;
+  refreshError?: string | null;
   errors?: ImportErrorRow[];
 };
 
-const ACTIVE_IMPORT_STATUSES = new Set(['QUEUED', 'PROCESSING', 'IMPORTED']);
+const ACTIVE_IMPORT_STATUSES = new Set(['QUEUED', 'PROCESSING']);
+const ACTIVE_REFRESH_STATUSES = new Set(['QUEUED', 'RUNNING']);
 
 function renderStatusTag(status: string) {
   const normalized = String(status || '').toUpperCase();
   if (normalized === 'COMPLETED') return <Tag color="green">{normalized}</Tag>;
   if (normalized === 'FAILED') return <Tag color="red">{normalized}</Tag>;
   if (normalized === 'PROCESSING') return <Tag color="blue">{normalized}</Tag>;
-  if (normalized === 'IMPORTED') return <Tag color="purple">{normalized}</Tag>;
   return <Tag color="gold">{normalized || 'UNKNOWN'}</Tag>;
+}
+
+function renderRefreshTag(status?: string | null) {
+  const normalized = String(status || '').toUpperCase();
+  if (!normalized) return <Tag>-</Tag>;
+  if (normalized === 'COMPLETED') return <Tag color="green">{normalized}</Tag>;
+  if (normalized === 'FAILED') return <Tag color="red">{normalized}</Tag>;
+  if (normalized === 'RUNNING') return <Tag color="blue">{normalized}</Tag>;
+  if (normalized === 'QUEUED') return <Tag color="gold">{normalized}</Tag>;
+  return <Tag>{normalized}</Tag>;
+}
+
+function isBatchActive(batch?: ImportBatchRow | null) {
+  if (!batch) return false;
+  const importStatus = String(batch.importStatus || '').toUpperCase();
+  const refreshStatus = String(batch.refreshStatus || '').toUpperCase();
+  return ACTIVE_IMPORT_STATUSES.has(importStatus) || ACTIVE_REFRESH_STATUSES.has(refreshStatus);
 }
 
 function formatDateTime(value?: string | null) {
@@ -132,7 +155,7 @@ export function ImportsView() {
     if (!selectedBatchId) {
       return;
     }
-    if (!selectedBatch || !ACTIVE_IMPORT_STATUSES.has(String(selectedBatch.importStatus || '').toUpperCase())) {
+    if (!isBatchActive(selectedBatch)) {
       return;
     }
 
@@ -407,6 +430,12 @@ export function ImportsView() {
                   render: (value: string) => renderStatusTag(value)
                 },
                 {
+                  title: 'Refresh',
+                  dataIndex: 'refreshStatus',
+                  key: 'refreshStatus',
+                  render: (value?: string | null) => renderRefreshTag(value)
+                },
+                {
                   title: 'Rows',
                   key: 'rows',
                   render: (_: unknown, record: ImportBatchRow) => `${record.validRows || 0}/${record.totalRows || 0}`
@@ -416,9 +445,7 @@ export function ImportsView() {
                   key: 'actions',
                   width: 60,
                   render: (_: unknown, record: ImportBatchRow) => {
-                    const isActive = ACTIVE_IMPORT_STATUSES.has(
-                      String(record.importStatus || '').toUpperCase()
-                    );
+                    const isActive = ACTIVE_IMPORT_STATUSES.has(String(record.importStatus || '').toUpperCase());
                     if (!isActive) return null;
                     return (
                       <Button
@@ -455,6 +482,8 @@ export function ImportsView() {
               <Descriptions size="small" column={2} bordered>
                 <Descriptions.Item label="Batch ID">{selectedBatch.id}</Descriptions.Item>
                 <Descriptions.Item label="Status">{renderStatusTag(selectedBatch.importStatus)}</Descriptions.Item>
+                <Descriptions.Item label="Refresh">{renderRefreshTag(selectedBatch.refreshStatus)}</Descriptions.Item>
+                <Descriptions.Item label="Refresh Job">{selectedBatch.refreshJobId || '-'}</Descriptions.Item>
                 <Descriptions.Item label="File">{selectedBatch.sourceFileName}</Descriptions.Item>
                 <Descriptions.Item label="Columns">{selectedBatch.totalColumns || 0}</Descriptions.Item>
                 <Descriptions.Item label="Total Rows">{selectedBatch.totalRows || 0}</Descriptions.Item>
@@ -464,6 +493,10 @@ export function ImportsView() {
                 <Descriptions.Item label="Created">{formatDateTime(selectedBatch.createdAt)}</Descriptions.Item>
                 <Descriptions.Item label="Started">{formatDateTime(selectedBatch.startedAt)}</Descriptions.Item>
                 <Descriptions.Item label="Completed">{formatDateTime(selectedBatch.completedAt)}</Descriptions.Item>
+                <Descriptions.Item label="Refresh Requested">{formatDateTime(selectedBatch.refreshRequestedAt)}</Descriptions.Item>
+                <Descriptions.Item label="Refresh Started">{formatDateTime(selectedBatch.refreshStartedAt)}</Descriptions.Item>
+                <Descriptions.Item label="Refresh Completed">{formatDateTime(selectedBatch.refreshCompletedAt)}</Descriptions.Item>
+                <Descriptions.Item label="Refresh Error">{selectedBatch.refreshError || '-'}</Descriptions.Item>
                 <Descriptions.Item label="Notes">{selectedBatch.notes || '-'}</Descriptions.Item>
               </Descriptions>
 

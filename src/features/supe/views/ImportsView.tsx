@@ -136,7 +136,16 @@ export function ImportsView() {
       return;
     }
 
+    // Cap polling: stop after ~10 minutes so a stuck batch doesn't keep the
+    // tab requesting forever. The server-side sweeper will mark it FAILED.
+    const MAX_POLLS = 200; // 200 * 3s = 10 minutes
+    let pollCount = 0;
     const intervalId = window.setInterval(() => {
+      pollCount += 1;
+      if (pollCount > MAX_POLLS) {
+        window.clearInterval(intervalId);
+        return;
+      }
       void loadBatch(selectedBatchId, { silent: true });
       void loadImports(selectedBatchId, { silent: true });
     }, 3000);
@@ -145,6 +154,16 @@ export function ImportsView() {
       window.clearInterval(intervalId);
     };
   }, [selectedBatch, selectedBatchId]);
+
+  const handleStopImport = async (batchId: number) => {
+    try {
+      await supeApi.cancelImport(batchId);
+      message.success('Import stopped');
+      await loadImports(batchId);
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Failed to stop import');
+    }
+  };
 
   const handleTemplateDownload = async () => {
     try {
@@ -391,6 +410,31 @@ export function ImportsView() {
                   title: 'Rows',
                   key: 'rows',
                   render: (_: unknown, record: ImportBatchRow) => `${record.validRows || 0}/${record.totalRows || 0}`
+                },
+                {
+                  title: '',
+                  key: 'actions',
+                  width: 60,
+                  render: (_: unknown, record: ImportBatchRow) => {
+                    const isActive = ACTIVE_IMPORT_STATUSES.has(
+                      String(record.importStatus || '').toUpperCase()
+                    );
+                    if (!isActive) return null;
+                    return (
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleStopImport(Number(record.id));
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        Stop
+                      </Button>
+                    );
+                  }
                 }
               ]}
             />

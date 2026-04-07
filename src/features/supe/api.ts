@@ -124,6 +124,9 @@ export const supeApi = {
   getImport(id: string | number) {
     return analyticsApi.get(`/imports/${id}`);
   },
+  cancelImport(id: string | number) {
+    return analyticsApi.post(`/imports/${id}/cancel`);
+  },
   downloadImportTemplate() {
     return analyticsApi.get('/imports/template', { responseType: 'blob' });
   },

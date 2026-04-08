@@ -580,12 +580,18 @@
 .compareHero {
 	display: flex;
 	justify-content: space-between;
-	align-items: flex-start;
+	align-items: center;
 	gap: 16px;
-	padding: 10px 20px;
+	padding: 18px 24px;
 	margin-top: 10px;
 	background-color: #ffffff;
 	border-bottom: 1px solid #e9edf5;
+}
+
+.compareHeroCopy {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
 .compareHeroTitle {
@@ -599,7 +605,7 @@
 
 	h2 {
 		margin: 0;
-		font-size: 38px;
+		font-size: 34px;
 		line-height: 1;
 		color: #151e30;
 	}
@@ -612,8 +618,8 @@
 }
 
 .compareHero p {
-	margin: 6px 0 0;
-	font-size: 16px;
+	margin: 0;
+	font-size: 15px;
 	color: #6f7c93;
 }
 
@@ -636,11 +642,78 @@
 .compareToolbar {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	padding: 12px 24px;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 0 24px 20px;
 	background: #ffffff;
-	border-bottom: 1px solid #e9edf5;
 	flex-wrap: wrap;
+}
+
+.compareControlGrid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 14px;
+	padding: 20px 24px 16px;
+}
+
+.compareControlBlock {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+
+	label {
+		font-size: 0.82rem;
+		font-weight: 700;
+		color: #5b667d;
+		letter-spacing: 0.02em;
+		text-transform: uppercase;
+	}
+
+	:global(.ant-select) {
+		width: 100%;
+	}
+
+	:global(.ant-select-selector) {
+		min-height: 46px !important;
+		border-radius: 12px !important;
+		border-color: #dce3f0 !important;
+		box-shadow: none !important;
+	}
+}
+
+.compareControlBlockWide {
+	grid-column: span 2;
+}
+
+.compareSelectionMeta {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+
+	span {
+		display: inline-flex;
+		align-items: center;
+		height: 32px;
+		padding: 0 12px;
+		border-radius: 999px;
+		background: #eef3ff;
+		color: #3f4f7f;
+		font-size: 13px;
+		font-weight: 600;
+	}
+}
+
+.compareRunButton {
+	min-width: 150px;
+	border-radius: 12px !important;
+	height: 44px !important;
+	font-weight: 600 !important;
+}
+
+.compareAlert {
+	margin: 0 24px 20px;
+	border-radius: 12px !important;
 }
 
 .compareModeSwitch {
@@ -747,6 +820,44 @@
 	border-radius: 16px !important;
 	margin: 14px 24px 0 !important;
 	box-shadow: none !important;
+}
+
+.compareSummaryGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 12px;
+}
+
+.compareSummaryCard {
+	border: 1px solid #e4eaf5;
+	border-radius: 14px;
+	background: linear-gradient(180deg, #fbfcff 0%, #f4f7fe 100%);
+	padding: 14px 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.compareSummaryLabel {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #71809d;
+}
+
+.compareSummaryValue {
+	font-size: 24px;
+	font-weight: 700;
+	color: #18233b;
+}
+
+.compareSummaryMeta {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 13px;
+	color: #5b6983;
 }
 
 .compareCardHead {
@@ -1344,8 +1455,9 @@
 	}
 
 	.compareHero {
-		padding: 14px 14px 12px;
+		padding: 16px 14px 12px;
 		flex-direction: column;
+		align-items: flex-start;
 	}
 
 	.compareHeroTitle h2 {
@@ -1366,6 +1478,23 @@
 		padding-right: 12px;
 	}
 
+	.compareToolbar {
+		padding-bottom: 16px;
+	}
+
+	.compareControlGrid {
+		grid-template-columns: 1fr;
+		padding: 16px 12px 14px;
+	}
+
+	.compareControlBlockWide {
+		grid-column: span 1;
+	}
+
+	.compareAlert {
+		margin: 0 12px 16px;
+	}
+
 	.compareCard {
 		margin: 10px 12px 0 !important;
 	}
@@ -1384,6 +1513,10 @@
 
 	.comparePopoverList {
 		width: 300px;
+	}
+
+	.compareSummaryGrid {
+		grid-template-columns: 1fr;
 	}
 }
 

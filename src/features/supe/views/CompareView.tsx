@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Select, Spin, Table, Tag } from 'antd';
+import { Alert, Button, Card, Empty, Select, Spin, Table } from 'antd';
 import { FilterOutlined, LineChartOutlined, SwapOutlined } from '@ant-design/icons';
 import supeApi from '../api';
 import { formatCurrency, formatNumber } from '../utils';
@@ -162,48 +162,66 @@ export function CompareView() {
 		return columns;
 	}, [selectedMetrics, entityType]);
 
+	const selectedMetricDefinitions = METRIC_OPTIONS[entityType].filter((item) => selectedMetrics.includes(item.value));
+
+	const compareSummary = compareData?.summary || [];
+
 	return (
 		<div className={styles.comparePage}>
 			<div className={styles.compareHero}>
-				<div>
+				<div className={styles.compareHeroCopy}>
 					<div className={styles.compareHeroTitle}>
 						<SwapOutlined /> <h2>Compare</h2>
 					</div>
-					<p>Compare entity performance using live OMS supe metrics.</p>
+					<p>Benchmark selected entities against the same live snapshot the Explore tables are using.</p>
 				</div>
+				<div className={styles.compareMetaChip}>{entityType.toUpperCase()} · {timeRange.toUpperCase()}</div>
 			</div>
 
 			<Card className={styles.compareCard} bordered={false}>
+				<div className={styles.compareControlGrid}>
+					<div className={styles.compareControlBlock}>
+						<label>Entity</label>
+						<Select value={entityType} onChange={(value) => setEntityType(value)} options={ENTITY_OPTIONS} />
+					</div>
+					<div className={styles.compareControlBlock}>
+						<label>Time Range</label>
+						<Select value={timeRange} onChange={setTimeRange} options={TIME_OPTIONS} />
+					</div>
+					<div className={`${styles.compareControlBlock} ${styles.compareControlBlockWide}`}>
+						<label>Entities</label>
+						<Select
+							mode="multiple"
+							value={selectedEntityIds}
+							onChange={(ids) => setSelectedEntityIds(ids as string[])}
+							placeholder={loadingEntities ? 'Loading entities...' : 'Choose at least 2 entities'}
+							loading={loadingEntities}
+							options={entityOptions.map((item) => ({ label: item.name, value: item.id }))}
+						/>
+					</div>
+					<div className={`${styles.compareControlBlock} ${styles.compareControlBlockWide}`}>
+						<label>Metrics</label>
+						<Select
+							mode="multiple"
+							value={selectedMetrics}
+							onChange={(metrics) => setSelectedMetrics(metrics as string[])}
+							placeholder="Choose metrics"
+							options={METRIC_OPTIONS[entityType].map((item) => ({ label: item.label, value: item.value }))}
+						/>
+					</div>
+				</div>
 				<div className={styles.compareToolbar}>
-					<Select
-						value={entityType}
-						onChange={(value) => setEntityType(value)}
-						options={ENTITY_OPTIONS}
-						style={{ minWidth: 180 }}
-					/>
-					<Select value={timeRange} onChange={setTimeRange} options={TIME_OPTIONS} style={{ minWidth: 160 }} />
-					<Select
-						mode="multiple"
-						value={selectedEntityIds}
-						onChange={(ids) => setSelectedEntityIds(ids as string[])}
-						style={{ minWidth: 320, flex: 1 }}
-						placeholder={loadingEntities ? 'Loading entities...' : 'Select entities'}
-						loading={loadingEntities}
-						options={entityOptions.map((item) => ({ label: item.name, value: item.id }))}
-					/>
-					<Select
-						mode="multiple"
-						value={selectedMetrics}
-						onChange={(metrics) => setSelectedMetrics(metrics as string[])}
-						style={{ minWidth: 280 }}
-						placeholder="Select metrics"
-						options={METRIC_OPTIONS[entityType].map((item) => ({ label: item.label, value: item.value }))}
-					/>
-					<Button type="primary" icon={<LineChartOutlined />} onClick={runCompare} loading={compareLoading}>
-						Compare
+					<div className={styles.compareSelectionMeta}>
+						<span>{selectedEntityIds.length} entities selected</span>
+						<span>{selectedMetricDefinitions.length} metrics active</span>
+					</div>
+					<Button type="primary" icon={<LineChartOutlined />} onClick={runCompare} loading={compareLoading} className={styles.compareRunButton}>
+						Run Compare
 					</Button>
 				</div>
-				{compareError && <div style={{ marginTop: 12 }}>{compareError}</div>}
+				{compareError ? (
+					<Alert className={styles.compareAlert} type="error" showIcon message={compareError} />
+				) : null}
 			</Card>
 
 			{compareLoading ? (
@@ -218,20 +236,30 @@ export function CompareView() {
 								<h3>
 									<FilterOutlined /> Summary
 								</h3>
+								<p>{compareData.entities?.length || 0} entities in the current comparison run.</p>
 							</div>
 						</div>
-						<div className={styles.compareChipRow}>
-							{(compareData.summary || []).map((metric: any) => (
-								<Tag key={metric.metric} className={styles.compareEntityChip}>
-									{metric.metric}: avg {formatMetricValue(metric.metric, Number(metric.average || 0), entityType)} · min{' '}
-									{formatMetricValue(metric.metric, Number(metric.min || 0), entityType)} · max{' '}
-									{formatMetricValue(metric.metric, Number(metric.max || 0), entityType)}
-								</Tag>
+						<div className={styles.compareSummaryGrid}>
+							{compareSummary.map((metric: any) => (
+								<div key={metric.metric} className={styles.compareSummaryCard}>
+									<div className={styles.compareSummaryLabel}>{metric.metric}</div>
+									<div className={styles.compareSummaryValue}>{formatMetricValue(metric.metric, Number(metric.average || 0), entityType)}</div>
+									<div className={styles.compareSummaryMeta}>
+										<span>Min {formatMetricValue(metric.metric, Number(metric.min || 0), entityType)}</span>
+										<span>Max {formatMetricValue(metric.metric, Number(metric.max || 0), entityType)}</span>
+									</div>
+								</div>
 							))}
 						</div>
 					</Card>
 
 					<Card className={styles.compareCard} bordered={false}>
+						<div className={styles.compareCardHead}>
+							<div>
+								<h3>Entity Matrix</h3>
+								<p>Side-by-side values from the selected snapshot.</p>
+							</div>
+						</div>
 						<Table
 							rowKey="id"
 							columns={resultColumns}
@@ -241,7 +269,14 @@ export function CompareView() {
 						/>
 					</Card>
 				</>
-			) : null}
+			) : (
+				<Card className={styles.compareCard} bordered={false}>
+					<Empty
+						description="Choose entities and metrics, then run a comparison to inspect relative performance."
+						image={Empty.PRESENTED_IMAGE_SIMPLE}
+					/>
+				</Card>
+			)}
 		</div>
 	);
 }

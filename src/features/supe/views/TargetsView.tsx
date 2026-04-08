@@ -352,6 +352,7 @@ export function TargetsView() {
 				onCancel={() => setShowCreate(false)}
 				footer={null}
 				className={styles.targetsModal}
+				closable={false}
 				destroyOnClose
 			>
 				<div className={styles.targetsModalHeader}>
@@ -430,6 +431,7 @@ export function TargetsView() {
 				onCancel={() => setEditingTarget(null)}
 				footer={null}
 				className={styles.targetsModal}
+				closable={false}
 				destroyOnClose
 			>
 				<div className={styles.targetsModalHeader}>

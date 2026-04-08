@@ -30,6 +30,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from
 import { useAuth } from '../auth/AuthContext';
 import supeApi from './api';
 import { ActionLogPanel } from './components/ActionLogPanel';
+import { PromptCommandBar } from './components/PromptCommandBar';
 import {
   supeActRoute,
   supeAskRoute,
@@ -450,6 +451,13 @@ export function SupeLayout() {
         <main className={styles.pageBody}>
           <Outlet />
         </main>
+
+        <div className={styles.promptDock}>
+          <PromptCommandBar
+            submitLabel={isAsk ? 'Send to Ask' : 'Ask'}
+            onSubmit={(question) => navigate(`${supeAskRoute}?q=${encodeURIComponent(question)}`)}
+          />
+        </div>
       </div>
 
       <ActionLogPanel open={actionLogOpen} onClose={() => setActionLogOpen(false)} />

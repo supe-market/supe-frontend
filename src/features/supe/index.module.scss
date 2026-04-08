@@ -649,6 +649,10 @@
 	flex-wrap: wrap;
 }
 
+.compareToolbar :global(.ant-select) {
+	min-width: 100%;
+}
+
 .compareControlGrid {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -782,6 +786,16 @@
 	color: #ffffff;
 	font-size: 13px;
 	font-weight: 500;
+
+	button {
+		border: none;
+		background: transparent;
+		color: inherit;
+		font-size: 14px;
+		line-height: 1;
+		padding: 0;
+		cursor: pointer;
+	}
 }
 
 .compareTabsRow {

@@ -7,7 +7,6 @@
 import {
 	Button,
 	Empty,
-	Input,
 	List,
 	Select,
 	Skeleton,
@@ -21,7 +20,6 @@ import {
 	CodeOutlined,
 	MessageOutlined,
 	PlusOutlined,
-	SendOutlined,
 	StopOutlined
 } from '@ant-design/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -45,14 +43,8 @@ import type {
 	ISupeAskRun,
 	ISupeAskThread
 } from '../types';
+import { LEADERSHIP_PROMPT_SUGGESTIONS, PromptCommandBar } from '../components/PromptCommandBar';
 import styles from '../index.module.scss';
-
-const SUGGESTED_QUERIES = [
-	'Why is Tamil Nadu underperforming this month?',
-	'Which distributors have the weakest fulfilment trend?',
-	'Show the top SKUs by revenue and penetration gap.',
-	'Where should I add salesmen for the biggest coverage lift?'
-];
 
 const ASK_CHART_COLORS = ['#1d4ed8', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#0369a1'];
 
@@ -551,7 +543,7 @@ export function HypothesesView() {
 				<div>
 					<h1 className={styles.askHeaderTitle}>Ask</h1>
 					<p className={styles.askHeaderSubtitle}>
-						Threaded analytical workspace with generated reports, reusable code, and streamed run state.
+						Conversational intelligence for live OMS snapshots, with streamed runs, reusable threads, and operator-friendly prompts.
 					</p>
 				</div>
 				<Button icon={<PlusOutlined />} onClick={() => void handleCreateThread()}>
@@ -648,10 +640,10 @@ export function HypothesesView() {
 								</div>
 								<h2 className={styles.askEmptyTitle}>What do you want to know?</h2>
 								<p className={styles.askEmptySubtitle}>
-									Ask anything about your business. Supe Ask will retrieve schema context, generate Python, and stream the report back here.
+									Start with one of the prototype leadership questions or type your own. The workspace will stream the run and keep the full context inside the thread.
 								</p>
 								<div className={styles.askChipRow}>
-									{SUGGESTED_QUERIES.map((item) => (
+									{LEADERSHIP_PROMPT_SUGGESTIONS.slice(0, 6).map((item) => (
 										<Button key={item} className={styles.askChip} onClick={() => setQuery(item)}>
 											{item}
 										</Button>
@@ -662,12 +654,19 @@ export function HypothesesView() {
 					</div>
 
 					<div className={styles.askComposer}>
-						<Input.TextArea
-							value={query}
-							onChange={(event) => setQuery(event.target.value)}
-							autoSize={{ minRows: 2, maxRows: 5 }}
-							placeholder="Ask for analytics, trends, comparisons, risks, or opportunity reports..."
-							aria-label="Ask question"
+						<PromptCommandBar
+							compact
+							submitLabel={selectedRun && ['queued', 'running'].includes(selectedRun.status) ? 'Running' : 'Run Ask'}
+							disabled={submitting}
+							suggestions={LEADERSHIP_PROMPT_SUGGESTIONS}
+							onQuickPick={(question) => {
+								setQuery(question);
+								void handleSubmit(question);
+							}}
+							onSubmit={(question) => {
+								setQuery(question);
+								void handleSubmit(question);
+							}}
 						/>
 						<div className={styles.askComposerFooter}>
 							<div className={styles.askComposerError}>{composerError || null}</div>
@@ -677,15 +676,6 @@ export function HypothesesView() {
 										Cancel Run
 									</Button>
 								) : null}
-								<Button
-									type="primary"
-									icon={<SendOutlined />}
-									loading={submitting}
-									onClick={() => void handleSubmit()}
-									aria-label="Send Ask query"
-								>
-									Run Ask
-								</Button>
 							</Space>
 						</div>
 					</div>

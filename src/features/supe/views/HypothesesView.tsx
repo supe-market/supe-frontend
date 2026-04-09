@@ -643,7 +643,7 @@ export function HypothesesView() {
 									Start with one of the prototype leadership questions or type your own. The workspace will stream the run and keep the full context inside the thread.
 								</p>
 								<div className={styles.askChipRow}>
-									{LEADERSHIP_PROMPT_SUGGESTIONS.slice(0, 6).map((item) => (
+									{LEADERSHIP_PROMPT_SUGGESTIONS.slice(0, 3).map((item) => (
 										<Button key={item} className={styles.askChip} onClick={() => setQuery(item)}>
 											{item}
 										</Button>

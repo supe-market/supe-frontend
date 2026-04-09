@@ -1,17 +1,11 @@
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
-import {
-  Alert,
-  Card,
-  Empty,
-  Select,
-  Spin
-} from 'antd';
+import { Alert, Card, Empty, Select, Spin } from 'antd';
 import {
   BarChartOutlined,
   BoxPlotOutlined,
   DotChartOutlined,
   FundOutlined,
-  SlidersOutlined,
+  LineChartOutlined,
   SwapOutlined
 } from '@ant-design/icons';
 import styles from '../index.module.scss';
@@ -34,24 +28,10 @@ type CompareEntityOption = {
   sub?: string;
 };
 
-type CompareEntityRow = {
-  id: string;
-  name: string;
-  metrics: Record<string, number>;
-};
-
 const ENTITY_OPTIONS: Array<{ key: CompareEntityType; label: string }> = [
   { key: 'geography', label: 'Geography' },
   { key: 'distributor', label: 'Distributor' },
   { key: 'sku', label: 'SKU' }
-];
-
-const TIME_OPTIONS = [
-  { label: 'Today', value: 'today' },
-  { label: 'MTD', value: 'mtd' },
-  { label: 'Last 7 Days', value: 'last7d' },
-  { label: 'Last 30 Days', value: 'last30d' },
-  { label: 'Last 90 Days', value: 'last90d' }
 ];
 
 const MODE_COLORS = ['#4c66ea', '#ec2f88', '#6d11d2', '#4a1db8', '#53c1ec', '#14b8a6', '#f59e0b', '#ef4444'];
@@ -107,106 +87,32 @@ function extractEntity(entityType: CompareEntityType, row: any): CompareEntityOp
   };
 }
 
-function formatMetricValue(metric: MetricDef, value: number) {
+function formatMetricValue(metric: Pick<MetricDef, 'unit'> | undefined, value: number) {
   const safeValue = Number(value || 0);
-  if (metric.unit === 'currency') {
+  if (metric?.unit === 'currency') {
     if (Math.abs(safeValue) >= 100000) {
       return `₹${(safeValue / 100000).toFixed(1)}L`;
     }
     return `₹${safeValue.toLocaleString('en-IN')}`;
   }
-  if (metric.unit === 'percent') {
+  if (metric?.unit === 'percent') {
     return `${safeValue.toFixed(1)}%`;
   }
   return safeValue.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
-function getPercentile(values: number[], current: number, higherIsBetter = true) {
-  const sorted = [...values].sort((left, right) => (higherIsBetter ? right - left : left - right));
-  const index = sorted.findIndex((value) => value === current);
-  if (index === -1) {
-    return 50;
-  }
-  if (sorted.length === 1) {
-    return 100;
-  }
-  return Math.round(((sorted.length - index - 1) / (sorted.length - 1)) * 100);
-}
-
-function percentileTone(percentile: number) {
-  if (percentile >= 75) {
+function metricToneClass(tone?: string) {
+  if (tone === 'top') {
     return styles.compareMetricCellTop;
   }
-  if (percentile <= 25) {
+  if (tone === 'bottom') {
     return styles.compareMetricCellBottom;
   }
   return styles.compareMetricCellMid;
 }
 
-function buildRows(compareData: any, selectedMetrics: string[], entityType: CompareEntityType) {
-  const metrics = METRIC_OPTIONS[entityType].filter((metric) => selectedMetrics.includes(metric.key));
-  const entities: CompareEntityRow[] = (compareData?.entities || []).map((row: any) => ({
-    id: String(row.id || row.entityId || row.name),
-    name: String(row.name || row.entityName || row.id),
-    metrics: Object.fromEntries(
-      metrics.map((metric) => [metric.key, Number(row.metrics?.[metric.key] || 0)])
-    )
-  }));
-
-  const metricValues = Object.fromEntries(
-    metrics.map((metric) => [metric.key, entities.map((entity) => entity.metrics[metric.key] || 0)])
-  );
-
-  return entities.map((entity) => {
-    const percentiles = Object.fromEntries(
-      metrics.map((metric) => [
-        metric.key,
-        getPercentile(metricValues[metric.key] || [], entity.metrics[metric.key] || 0, metric.higherIsBetter !== false)
-      ])
-    );
-    const overallScore = metrics.length
-      ? Math.round(metrics.reduce((sum, metric) => sum + Number(percentiles[metric.key] || 0), 0) / metrics.length)
-      : 0;
-    return {
-      ...entity,
-      percentiles,
-      overallScore
-    };
-  }).sort((left, right) => right.overallScore - left.overallScore);
-}
-
-function buildGapCards(rows: ReturnType<typeof buildRows>, entityType: CompareEntityType, selectedMetrics: string[]) {
-  const metrics = METRIC_OPTIONS[entityType].filter((metric) => selectedMetrics.includes(metric.key));
-  return metrics.map((metric) => {
-    const sorted = [...rows].sort((left, right) =>
-      metric.higherIsBetter === false
-        ? (left.metrics[metric.key] || 0) - (right.metrics[metric.key] || 0)
-        : (right.metrics[metric.key] || 0) - (left.metrics[metric.key] || 0)
-    );
-    const best = sorted[0];
-    const median = sorted[Math.floor(sorted.length / 2)];
-    const worst = sorted[sorted.length - 1];
-    const bestValue = Number(best?.metrics?.[metric.key] || 0);
-    const worstValue = Number(worst?.metrics?.[metric.key] || 0);
-    const medianValue = Number(median?.metrics?.[metric.key] || 0);
-    const spread = bestValue ? Math.abs(((bestValue - worstValue) * 100) / bestValue) : 0;
-    return {
-      metric,
-      best,
-      median,
-      worst,
-      bestValue,
-      medianValue,
-      worstValue,
-      spread,
-      gapToMedian: Math.abs(medianValue - worstValue)
-    };
-  });
-}
-
 export function CompareView() {
   const [entityType, setEntityType] = useState<CompareEntityType>('geography');
-  const [timeRange, setTimeRange] = useState('mtd');
   const [loadingEntities, setLoadingEntities] = useState(true);
   const [entityOptions, setEntityOptions] = useState<CompareEntityOption[]>([]);
   const [selectedEntityIds, setSelectedEntityIds] = useState<string[]>([]);
@@ -219,16 +125,12 @@ export function CompareView() {
   const [headToHeadLeft, setHeadToHeadLeft] = useState<string>('');
   const [headToHeadRight, setHeadToHeadRight] = useState<string>('');
 
-  const periodLabel = useMemo(() => {
-    const now = new Date();
-    return `${now.toLocaleString('en-IN', { month: 'short', year: 'numeric' })} · ${timeRange.toUpperCase()}`;
-  }, [timeRange]);
-
   useEffect(() => {
     setSelectedMetrics(METRIC_OPTIONS[entityType].map((item) => item.key));
     setFocusMetric(METRIC_OPTIONS[entityType][0]?.key || '');
     setSelectedEntityIds([]);
     setCompareData(null);
+    setCompareError('');
     setAnalysisTab('heatmap');
   }, [entityType]);
 
@@ -238,7 +140,7 @@ export function CompareView() {
       try {
         setLoadingEntities(true);
         setCompareError('');
-        const response = await supeApi.getObserveEntityList(entityType, { timeRange, limit: 500, page: 1 });
+        const response = await supeApi.getObserveEntityList(entityType, { timeRange: 'mtd', limit: 500, page: 1 });
         if (!active) {
           return;
         }
@@ -259,7 +161,7 @@ export function CompareView() {
     return () => {
       active = false;
     };
-  }, [entityType, timeRange]);
+  }, [entityType]);
 
   const runCompare = async () => {
     if (selectedEntityIds.length < 2) {
@@ -278,7 +180,7 @@ export function CompareView() {
         entityType,
         entityIds: selectedEntityIds,
         metrics: selectedMetrics,
-        timeRange
+        timeRange: 'mtd'
       });
       setCompareData(response?.data?.data || null);
     } catch (error: any) {
@@ -289,43 +191,51 @@ export function CompareView() {
     }
   };
 
-  const selectedMetricDefs = useMemo(
-    () => METRIC_OPTIONS[entityType].filter((metric) => selectedMetrics.includes(metric.key)),
-    [entityType, selectedMetrics]
-  );
-
   const selectedEntities = useMemo(
     () => entityOptions.filter((entity) => selectedEntityIds.includes(entity.id)),
     [entityOptions, selectedEntityIds]
   );
 
-  const compareRows = useMemo(
-    () => buildRows(compareData, selectedMetrics, entityType),
-    [compareData, entityType, selectedMetrics]
-  );
+  const metricDefinitions: MetricDef[] = useMemo(() => {
+    const backendMetrics = Array.isArray(compareData?.metricDefinitions) ? compareData.metricDefinitions : [];
+    if (backendMetrics.length) {
+      return backendMetrics.map((metric: any) => ({
+        key: String(metric.key),
+        label: String(metric.label),
+        shortLabel: String(metric.shortLabel || metric.label),
+        unit: metric.unit,
+        higherIsBetter: metric.higherIsBetter !== false
+      }));
+    }
+    return METRIC_OPTIONS[entityType].filter((metric) => selectedMetrics.includes(metric.key));
+  }, [compareData?.metricDefinitions, entityType, selectedMetrics]);
 
-  const gapCards = useMemo(
-    () => buildGapCards(compareRows, entityType, selectedMetrics),
-    [compareRows, entityType, selectedMetrics]
-  );
+  const matrixRows = compareData?.sections?.performanceMatrix?.rows || [];
+  const indexRows = compareData?.sections?.indexToAverage?.rows || [];
+  const gapCards = compareData?.sections?.gapOpportunities || [];
+  const headToHeadPairs = compareData?.sections?.headToHead?.pairs || [];
+  const trendMetrics = compareData?.sections?.trendDivergence?.metrics || [];
 
   useEffect(() => {
-    if (!compareRows.length) {
-      setHeadToHeadLeft('');
-      setHeadToHeadRight('');
-      return;
-    }
-    setHeadToHeadLeft((current) => (compareRows.some((row) => row.id === current) ? current : compareRows[0]?.id || ''));
-    setHeadToHeadRight((current) => {
-      if (compareRows.some((row) => row.id === current) && current !== headToHeadLeft) {
-        return current;
-      }
-      return compareRows[1]?.id || compareRows[0]?.id || '';
-    });
-  }, [compareRows, headToHeadLeft]);
+    const defaultLeft = compareData?.sections?.headToHead?.defaultLeftEntityId || '';
+    const defaultRight = compareData?.sections?.headToHead?.defaultRightEntityId || '';
+    setHeadToHeadLeft(defaultLeft);
+    setHeadToHeadRight(defaultRight && defaultRight !== defaultLeft ? defaultRight : defaultLeft);
+  }, [compareData]);
 
-  const leftRow = compareRows.find((row) => row.id === headToHeadLeft) || compareRows[0];
-  const rightRow = compareRows.find((row) => row.id === headToHeadRight) || compareRows[1];
+  const selectedHeadToHead = useMemo(() => {
+    return (
+      headToHeadPairs.find(
+        (pair: any) =>
+          (pair.leftEntityId === headToHeadLeft && pair.rightEntityId === headToHeadRight) ||
+          (pair.leftEntityId === headToHeadRight && pair.rightEntityId === headToHeadLeft)
+      ) || headToHeadPairs[0]
+    );
+  }, [headToHeadLeft, headToHeadPairs, headToHeadRight]);
+
+  const activeTrendMetric = useMemo(() => {
+    return trendMetrics.find((metric: any) => metric.metricKey === focusMetric) || trendMetrics[0] || null;
+  }, [focusMetric, trendMetrics]);
 
   return (
     <div className={styles.comparePage}>
@@ -334,40 +244,43 @@ export function CompareView() {
           <div className={styles.compareHeroTitle}>
             <SwapOutlined />
             <h2>Compare</h2>
-            <span>{periodLabel}</span>
+            <span>MTD</span>
           </div>
-          <p>Multi-entity analytical comparison — discover patterns, quantify gaps, track divergence.</p>
+          <p>Benchmark selected entities against the same live snapshot the Explore tables are using.</p>
         </div>
         <div className={styles.compareMetaChip}>{selectedEntityIds.length} entities · {selectedMetrics.length}/{METRIC_OPTIONS[entityType].length} metrics</div>
       </div>
 
       <Card className={styles.compareCard} bordered={false}>
-        <div className={styles.compareToolbar}>
-          <div className={styles.compareModeSwitch}>
-            {ENTITY_OPTIONS.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                className={entityType === option.key ? styles.compareModeActive : undefined}
-                onClick={() => setEntityType(option.key)}
-              >
-                {option.label}
-              </button>
-            ))}
+        <div className={styles.compareControlGrid}>
+          <div className={styles.compareControlBlock}>
+            <label>Entity</label>
+            <div className={styles.compareModeSwitch}>
+              {ENTITY_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={entityType === option.key ? styles.compareModeActive : undefined}
+                  onClick={() => setEntityType(option.key)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className={styles.compareControlBlock} style={{ minWidth: 200 }}>
+          <div className={styles.compareControlBlock}>
             <label>Time Range</label>
-            <Select value={timeRange} onChange={setTimeRange} options={TIME_OPTIONS} />
+            <div className={styles.compareStaticControl}>MTD</div>
           </div>
 
-          <div className={`${styles.compareControlBlock} ${styles.compareControlBlockWide}`} style={{ minWidth: 280 }}>
+          <div className={`${styles.compareControlBlock} ${styles.compareControlBlockWide}`}>
             <label>Entities</label>
             <Select
               mode="multiple"
               value={selectedEntityIds}
               loading={loadingEntities}
-              placeholder="Select entities"
+              placeholder="Choose at least 2 entities"
               onChange={(values) => setSelectedEntityIds(values as string[])}
               options={entityOptions.map((entity) => ({
                 label: entity.name,
@@ -376,7 +289,7 @@ export function CompareView() {
             />
           </div>
 
-          <div className={`${styles.compareControlBlock} ${styles.compareControlBlockWide}`} style={{ minWidth: 240 }}>
+          <div className={`${styles.compareControlBlock} ${styles.compareControlBlockWide}`}>
             <label>Metrics</label>
             <Select
               mode="multiple"
@@ -388,21 +301,23 @@ export function CompareView() {
               }))}
             />
           </div>
+        </div>
 
+        <div className={styles.compareToolbar}>
+          <div className={styles.compareSelectionMeta}>
+            <span>{selectedEntityIds.length} entities selected</span>
+            <span>{selectedMetrics.length} metrics active</span>
+          </div>
           <button type="button" className={styles.compareSelectButton} onClick={runCompare}>
-            <BarChartOutlined />
-            <b>Compare</b>
+            <LineChartOutlined />
+            <b>Run Compare</b>
           </button>
         </div>
 
         {selectedEntities.length ? (
-          <div className={styles.compareChipRow} style={{ padding: '0 24px 18px' }}>
+          <div className={styles.compareChipRow}>
             {selectedEntities.map((entity, index) => (
-              <span
-                key={entity.id}
-                className={styles.compareEntityChip}
-                style={{ backgroundColor: MODE_COLORS[index % MODE_COLORS.length] }}
-              >
+              <span key={entity.id} className={styles.compareEntityChip} style={{ backgroundColor: MODE_COLORS[index % MODE_COLORS.length] }}>
                 {entity.name}
                 <button type="button" onClick={() => setSelectedEntityIds((current) => current.filter((value) => value !== entity.id))}>
                   ×
@@ -429,16 +344,22 @@ export function CompareView() {
 
       {compareLoading ? (
         <Card className={styles.compareCard} bordered={false}>
-          <Spin />
+          <div className={styles.compareState}><Spin /></div>
         </Card>
-      ) : compareRows.length ? (
+      ) : !compareData ? (
+        <Card className={styles.compareCard} bordered={false}>
+          <div className={styles.compareState}>
+            <Empty description="Choose entities and metrics, then run a comparison to inspect relative performance." />
+          </div>
+        </Card>
+      ) : (
         <>
           {analysisTab === 'heatmap' ? (
             <Card className={styles.compareCard} bordered={false}>
               <div className={styles.compareCardHead}>
                 <div>
                   <h3>Performance Matrix</h3>
-                  <p>Cells colored by percentile rank within selection · Sorted by composite score</p>
+                  <p>Cells are colored by cohort percentile and rows are sorted by composite score.</p>
                 </div>
                 <div className={styles.compareLegend}>
                   <span className={styles.top} /> Top
@@ -451,27 +372,30 @@ export function CompareView() {
                 <div className={styles.compareMatrixHeader}>
                   <div>Entity</div>
                   <div>Score</div>
-                  {selectedMetricDefs.map((metric) => (
+                  {metricDefinitions.map((metric) => (
                     <div key={metric.key}>{metric.shortLabel}</div>
                   ))}
                 </div>
 
-                {compareRows.map((row, rowIndex) => (
-                  <div key={row.id} className={styles.compareMatrixRow}>
+                {matrixRows.map((row: any, rowIndex: number) => (
+                  <div key={row.entityId} className={styles.compareMatrixRow}>
                     <div className={styles.compareEntityCell}>
-                      <span style={{ backgroundColor: MODE_COLORS[rowIndex % MODE_COLORS.length] }}>{rowIndex + 1}</span>
+                      <span style={{ backgroundColor: MODE_COLORS[rowIndex % MODE_COLORS.length] }}>{row.rank}</span>
                       <div>
-                        <strong>{row.name}</strong>
-                        <small>{selectedEntities.find((entity) => entity.name === row.name)?.sub || entityType}</small>
+                        <strong>{row.entityName}</strong>
+                        <small>{row.region || row.zone || row.area || entityType}</small>
                       </div>
                     </div>
-                    <div className={styles.compareScoreBubble}>{row.overallScore}</div>
-                    {selectedMetricDefs.map((metric) => (
-                      <div key={metric.key} className={`${styles.compareMetricCell} ${percentileTone(Number(row.percentiles[metric.key] || 0))}`}>
-                        <b>{formatMetricValue(metric, row.metrics[metric.key] || 0)}</b>
-                        <small>P{row.percentiles[metric.key] || 0}</small>
-                      </div>
-                    ))}
+                    <div className={styles.compareScoreBubble}>{row.score}</div>
+                    {metricDefinitions.map((metric) => {
+                      const card = row.metricCards?.find((item: any) => item.metricKey === metric.key);
+                      return (
+                        <div key={metric.key} className={`${styles.compareMetricCell} ${metricToneClass(card?.tone)}`}>
+                          <b>{formatMetricValue(metric, Number(card?.value || 0))}</b>
+                          <small>P{Math.round(Number(card?.percentile || 0))}</small>
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
@@ -483,18 +407,13 @@ export function CompareView() {
               <div className={styles.compareCardHead}>
                 <div>
                   <h3>Index to Average</h3>
-                  <p>100 = group average. Use the focus metric pills to compare relative lift or drag.</p>
+                  <p>100 equals the selected cohort average for this MTD snapshot.</p>
                 </div>
               </div>
 
               <div className={styles.compareMetricToggles}>
-                {selectedMetricDefs.map((metric) => (
-                  <button
-                    key={metric.key}
-                    type="button"
-                    className={focusMetric === metric.key ? styles.compareMetricToggleActive : undefined}
-                    onClick={() => setFocusMetric(metric.key)}
-                  >
+                {metricDefinitions.map((metric) => (
+                  <button key={metric.key} type="button" className={focusMetric === metric.key ? styles.compareMetricToggleActive : undefined} onClick={() => setFocusMetric(metric.key)}>
                     {metric.label}
                   </button>
                 ))}
@@ -503,21 +422,17 @@ export function CompareView() {
               <div className={styles.compareIndexTable}>
                 <div className={styles.compareIndexHeader}>
                   <div>Entity</div>
-                  {selectedMetricDefs.map((metric) => (
+                  {metricDefinitions.map((metric) => (
                     <div key={metric.key}>{metric.shortLabel}</div>
                   ))}
                 </div>
-
-                {compareRows.map((row) => (
-                  <div key={row.id} className={styles.compareIndexRow}>
-                    <div>{row.name}</div>
-                    {selectedMetricDefs.map((metric) => {
-                      const metricAverage =
-                        compareRows.reduce((sum, entry) => sum + Number(entry.metrics[metric.key] || 0), 0) / Math.max(compareRows.length, 1);
-                      const index = metricAverage ? Math.round((Number(row.metrics[metric.key] || 0) * 100) / metricAverage) : 0;
-                      const tone = index >= 100 ? styles.compareGood : styles.compareBad;
+                {indexRows.map((row: any) => (
+                  <div key={row.entityId} className={styles.compareIndexRow}>
+                    <div>{row.entityName}</div>
+                    {metricDefinitions.map((metric) => {
+                      const index = Math.round(Number(row.indices?.[metric.key]?.index || 0));
                       return (
-                        <div key={metric.key} className={tone}>
+                        <div key={metric.key} className={index >= 100 ? styles.compareGood : styles.compareBad}>
                           {index}
                         </div>
                       );
@@ -533,41 +448,44 @@ export function CompareView() {
               <div className={styles.compareCardHead}>
                 <div>
                   <h3>Gap Opportunities</h3>
-                  <p>How far does the weakest entity sit from median and best-in-group performance?</p>
+                  <p>Compare weakest, median, and strongest cohort positions for each metric.</p>
                 </div>
               </div>
 
               <div className={styles.compareGapGrid}>
-                {gapCards.map((card) => (
-                  <div key={card.metric.key} style={{ padding: '18px 20px', borderTop: '1px solid #edf1f7' }}>
-                    <div className={styles.compareGapHead}>
-                      <h4>{card.metric.label}</h4>
-                      <span>{card.spread.toFixed(0)}% spread</span>
-                    </div>
-                    <div className={styles.compareGapTrack}>
-                      <div style={{ width: `${Math.max(Math.min(card.bestValue ? (card.worstValue / card.bestValue) * 100 : 4, 100), 4)}%` }} />
-                      <i />
-                    </div>
-                    <div className={styles.compareGapValues}>
-                      <div>
-                        <small>Weakest</small>
-                        <b>{formatMetricValue(card.metric, card.worstValue)}</b>
-                        <span>{card.worst?.name}</span>
+                {gapCards.map((card: any) => {
+                  const metric = metricDefinitions.find((item) => item.key === card.metricKey);
+                  return (
+                    <div key={card.metricKey} className={styles.compareGapCard}>
+                      <div className={styles.compareGapHead}>
+                        <h4>{card.label}</h4>
+                        <span>{Number(card.spreadPct || 0).toFixed(0)}% spread</span>
                       </div>
-                      <div>
-                        <small style={{ color: '#d97706' }}>Median</small>
-                        <b>{formatMetricValue(card.metric, card.medianValue)}</b>
-                        <span>Group P50</span>
+                      <div className={styles.compareGapTrack}>
+                        <div style={{ width: `${Math.max(Math.min(100 - Math.min(Number(card.spreadPct || 0), 92), 100), 8)}%` }} />
+                        <i />
                       </div>
-                      <div>
-                        <small style={{ color: '#10b981' }}>Strongest</small>
-                        <b>{formatMetricValue(card.metric, card.bestValue)}</b>
-                        <span>{card.best?.name}</span>
+                      <div className={styles.compareGapValues}>
+                        <div>
+                          <small>Weakest</small>
+                          <b>{formatMetricValue(metric, Number(card.worst?.value || 0))}</b>
+                          <span>{card.worst?.entityName || '-'}</span>
+                        </div>
+                        <div>
+                          <small style={{ color: '#d97706' }}>Median</small>
+                          <b>{formatMetricValue(metric, Number(card.median?.value || 0))}</b>
+                          <span>{card.median?.entityName || 'Cohort median'}</span>
+                        </div>
+                        <div>
+                          <small style={{ color: '#10b981' }}>Strongest</small>
+                          <b>{formatMetricValue(metric, Number(card.best?.value || 0))}</b>
+                          <span>{card.best?.entityName || '-'}</span>
+                        </div>
                       </div>
+                      <div className={styles.compareGapFoot}>Gap to median: {formatMetricValue(metric, Number(card.opportunityToMedian || 0))}</div>
                     </div>
-                    <div className={styles.compareGapFoot}>Gap to median: {formatMetricValue(card.metric, card.gapToMedian)}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
           ) : null}
@@ -577,51 +495,58 @@ export function CompareView() {
               <div className={styles.compareCardHead}>
                 <div>
                   <h3>Head to Head</h3>
-                  <p>Pick two entities and inspect where each one wins or loses.</p>
+                  <p>Backend-computed pairwise comparison for the selected entities and active metrics.</p>
                 </div>
               </div>
 
               <div className={styles.compareH2hSelectors}>
-                <Select value={headToHeadLeft} onChange={setHeadToHeadLeft} options={compareRows.map((row) => ({ label: row.name, value: row.id }))} />
+                <Select value={headToHeadLeft} onChange={setHeadToHeadLeft} options={compareData.entities.map((entity: any) => ({ label: entity.name, value: entity.id }))} />
                 <span>VS</span>
-                <Select value={headToHeadRight} onChange={setHeadToHeadRight} options={compareRows.map((row) => ({ label: row.name, value: row.id }))} />
+                <Select value={headToHeadRight} onChange={setHeadToHeadRight} options={compareData.entities.map((entity: any) => ({ label: entity.name, value: entity.id }))} />
               </div>
 
-              {leftRow && rightRow ? (
+              {selectedHeadToHead ? (
                 <>
                   <div className={styles.compareH2hScore}>
                     <div>
-                      <b>1</b>
-                      <span>{leftRow.name}</span>
+                      <b>{selectedHeadToHead.leftScore}</b>
+                      <span>{selectedHeadToHead.leftEntityName}</span>
                     </div>
                     <SwapOutlined />
                     <div>
-                      <b>2</b>
-                      <span>{rightRow.name}</span>
+                      <b>{selectedHeadToHead.rightScore}</b>
+                      <span>{selectedHeadToHead.rightEntityName}</span>
                     </div>
                   </div>
 
-                  {selectedMetricDefs.map((metric) => {
-                    const leftValue = Number(leftRow.metrics[metric.key] || 0);
-                    const rightValue = Number(rightRow.metrics[metric.key] || 0);
-                    const maxValue = Math.max(leftValue, rightValue, 1);
+                  {selectedHeadToHead.metrics.map((metricRow: any) => {
+                    const metric = metricDefinitions.find((item) => item.key === metricRow.metricKey);
+                    const leftValue = Number(metricRow.leftValue || 0);
+                    const rightValue = Number(metricRow.rightValue || 0);
+                    const maxValue = Math.max(Math.abs(leftValue), Math.abs(rightValue), 1);
                     return (
-                      <div key={metric.key} className={styles.compareH2hRow}>
+                      <div key={metricRow.metricKey} className={styles.compareH2hRow}>
                         <div className={styles.compareH2hBarLeft}>
-                          <div style={{ width: `${(leftValue * 100) / maxValue}%` }} />
+                          <div style={{ width: `${(Math.abs(leftValue) * 100) / maxValue}%` }} />
                         </div>
                         <div className={styles.compareH2hMid}>
-                          <b>{metric.label}</b>
-                          <span>{formatMetricValue(metric, leftValue)} · {formatMetricValue(metric, rightValue)}</span>
+                          <b>{metricRow.label}</b>
+                          <span>
+                            {formatMetricValue(metric, leftValue)} · {formatMetricValue(metric, rightValue)}
+                          </span>
                         </div>
                         <div className={styles.compareH2hBarRight}>
-                          <div style={{ width: `${(rightValue * 100) / maxValue}%` }} />
+                          <div style={{ width: `${(Math.abs(rightValue) * 100) / maxValue}%` }} />
                         </div>
                       </div>
                     );
                   })}
                 </>
-              ) : null}
+              ) : (
+                <div className={styles.compareState}>
+                  <Empty description="Select at least two entities to see a head-to-head comparison." />
+                </div>
+              )}
             </Card>
           ) : null}
 
@@ -630,35 +555,39 @@ export function CompareView() {
               <div className={styles.compareCardHead}>
                 <div>
                   <h3>Trend Divergence</h3>
-                  <p>The current compare API only returns a live snapshot, so this view highlights current spread by metric until history is wired in.</p>
+                  <p>Historical snapshot spread across the selected MTD metrics.</p>
                 </div>
               </div>
 
-              <div className={styles.compareTrendCards}>
-                {gapCards.map((card, index) => (
-                  <div key={card.metric.key} style={{ padding: '18px 20px', borderTop: '1px solid #edf1f7' }}>
-                    <div className={styles.compareTrendCardInner}>
-                      <span style={{ backgroundColor: MODE_COLORS[index % MODE_COLORS.length] }} />
-                      <h4>{card.metric.label}</h4>
-                      <div className={styles.compareSummaryMeta}>
-                        <span>Leader: {card.best?.name}</span>
-                        <span>Laggard: {card.worst?.name}</span>
-                        <span>Spread: {card.spread.toFixed(0)}%</span>
-                      </div>
-                    </div>
-                  </div>
+              <div className={styles.compareMetricToggles}>
+                {metricDefinitions.map((metric) => (
+                  <button key={metric.key} type="button" className={focusMetric === metric.key ? styles.compareMetricToggleActive : undefined} onClick={() => setFocusMetric(metric.key)}>
+                    {metric.label}
+                  </button>
                 ))}
               </div>
+
+              {activeTrendMetric ? (
+                <div className={styles.compareTrendCards}>
+                  {activeTrendMetric.series.map((series: any, index: number) => (
+                    <div key={series.entityId} className={styles.compareTrendCard}>
+                      <div className={styles.compareTrendCardInner}>
+                        <span style={{ backgroundColor: MODE_COLORS[index % MODE_COLORS.length] }} />
+                        <div>{series.entityName}</div>
+                        <b>{formatMetricValue(metricDefinitions.find((item) => item.key === activeTrendMetric.metricKey), Number(series.latestValue || 0))}</b>
+                        <small>{Number(series.changePct || 0).toFixed(1)}% vs oldest point</small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.compareState}>
+                  <Empty description="No historical trend data is available for the selected cohort." />
+                </div>
+              )}
             </Card>
           ) : null}
         </>
-      ) : (
-        <Card className={styles.compareCard} bordered={false}>
-          <Empty
-            description="Select at least two entities and a metric set, then run the comparison."
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
-        </Card>
       )}
     </div>
   );

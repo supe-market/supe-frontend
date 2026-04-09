@@ -321,8 +321,11 @@
 }
 
 .sidebarFooter {
-  padding: 10px 10px;
+  padding: 8px 10px 10px;
   border-top: 1px solid var(--supe-bg-sidebar-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .utilityButton,
@@ -382,9 +385,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
-  padding: 6px 12px;
+  margin-top: 6px;
+  padding: 8px 12px;
   border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .userAvatar {
@@ -425,7 +429,7 @@
   position: fixed;
   left: calc(var(--sidebar-width, 220px) + 22px);
   right: 22px;
-  bottom: 18px;
+  bottom: 14px;
   z-index: 50;
   pointer-events: none;
 }
@@ -436,14 +440,14 @@
 
 .promptComposerFrame {
   position: relative;
-  max-width: 940px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 12px;
+  padding: 9px;
   border: 1px solid rgba(219, 228, 240, 0.9);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
-  backdrop-filter: blur(18px);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(14px);
 }
 
 .promptComposerCompact .promptComposerFrame {
@@ -455,12 +459,12 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 60px;
-  padding: 8px 8px 8px 14px;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 6px 6px 12px;
   border: 1px solid #e5e7eb;
-  border-radius: 18px;
-  background: #f8fafc;
+  border-radius: 14px;
+  background: #fbfcfe;
 }
 
 .promptComposerIcon {
@@ -482,8 +486,8 @@
   border: none;
   background: transparent;
   color: #111827;
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.4;
   font-weight: 500;
   outline: none;
 }
@@ -499,8 +503,8 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   color: #94a3b8;
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.4;
   pointer-events: none;
 }
 
@@ -509,8 +513,8 @@
 }
 
 .promptComposerSubmit {
-  height: 42px !important;
-  padding-inline: 18px !important;
+  height: 36px !important;
+  padding-inline: 14px !important;
   border-radius: 999px !important;
   font-weight: 700 !important;
   box-shadow: none !important;
@@ -518,9 +522,10 @@
 
 .promptComposerQuickRow {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  padding: 10px 2px 0;
+  padding: 8px 2px 0;
+  overflow: hidden;
 }
 
 .promptComposerChip {
@@ -528,12 +533,17 @@
   border-radius: 999px;
   background: #fff;
   color: #475569;
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: 7px 12px;
+  font-size: 11px;
   line-height: 1.2;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .promptComposerChip:hover {
@@ -544,14 +554,14 @@
 
 .promptComposerDropdown {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: calc(100% + 10px);
+  left: 8px;
+  right: 8px;
+  bottom: calc(100% + 8px);
   padding: 8px;
   border: 1px solid #e2e8f0;
-  border-radius: 18px;
+  border-radius: 14px;
   background: #fff;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.1);
 }
 
 .promptComposerOption {
@@ -588,22 +598,21 @@
   }
 
   .promptComposerFrame {
-    padding: 10px;
-    border-radius: 18px;
+    padding: 8px;
+    border-radius: 16px;
   }
 
   .promptComposerField {
-    min-height: 54px;
-    padding: 6px 6px 6px 12px;
+    min-height: 46px;
+    padding: 6px 6px 6px 10px;
   }
 
   .promptComposerSubmit {
-    padding-inline: 14px !important;
+    padding-inline: 12px !important;
   }
 
   .promptComposerQuickRow {
     overflow-x: auto;
-    flex-wrap: nowrap;
     padding-bottom: 2px;
   }
 
@@ -1016,7 +1025,7 @@
 .pageBody {
   min-width: 0;
   flex: 1;
-  padding-bottom: 124px;
+  padding-bottom: 88px;
 }
 
 @media (max-width: 1024px) {

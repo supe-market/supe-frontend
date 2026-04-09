@@ -9,20 +9,20 @@
 	min-height: calc(100dvh - 48px);
 	background: #f8fafc;
 	margin: -8px -12px 0;
-	padding: 14px 16px 18px;
+	padding: 10px 14px 16px;
 }
 
 .askHeader {
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
-	gap: 16px;
-	padding: 6px 4px 14px;
+	gap: 14px;
+	padding: 4px 2px 12px;
 }
 
 .askHeaderTitle {
 	margin: 0;
-	font-size: 34px;
+	font-size: 30px;
 	line-height: 1;
 	font-weight: 700;
 	color: #0f172a;
@@ -30,17 +30,17 @@
 }
 
 .askHeaderSubtitle {
-	margin: 8px 0 0;
-	max-width: 720px;
+	margin: 6px 0 0;
+	max-width: 760px;
 	color: #475569;
-	font-size: 14px;
-	line-height: 1.5;
+	font-size: 13px;
+	line-height: 1.45;
 }
 
 .askWorkspace {
 	display: grid;
 	grid-template-columns: 280px minmax(0, 1.35fr) minmax(320px, 0.95fr);
-	gap: 14px;
+	gap: 12px;
 	align-items: start;
 }
 
@@ -48,9 +48,9 @@
 .askConversationPane,
 .askDetailPane {
 	border: 1px solid #dbe4f0;
-	border-radius: 16px;
+	border-radius: 14px;
 	background: #ffffff;
-	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
 .askThreadsRail,
@@ -61,12 +61,12 @@
 .askConversationPane {
 	display: flex;
 	flex-direction: column;
-	min-height: calc(100dvh - 170px);
+	min-height: calc(100dvh - 156px);
 }
 
 .askConversationBody {
 	flex: 1;
-	padding: 18px;
+	padding: 16px;
 	overflow: auto;
 }
 
@@ -582,8 +582,8 @@
 	justify-content: space-between;
 	align-items: center;
 	gap: 16px;
-	padding: 18px 24px;
-	margin-top: 10px;
+	padding: 14px 24px 12px;
+	margin-top: 8px;
 	background-color: #ffffff;
 	border-bottom: 1px solid #e9edf5;
 }
@@ -605,13 +605,13 @@
 
 	h2 {
 		margin: 0;
-		font-size: 34px;
+		font-size: 30px;
 		line-height: 1;
 		color: #151e30;
 	}
 
 	span {
-		font-size: 22px;
+		font-size: 18px;
 		color: #98a1b4;
 		font-weight: 500;
 	}
@@ -619,7 +619,7 @@
 
 .compareHero p {
 	margin: 0;
-	font-size: 15px;
+	font-size: 13px;
 	color: #6f7c93;
 }
 
@@ -627,11 +627,11 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
-	padding: 8px 14px;
+	padding: 8px 12px;
 	border-radius: 999px;
 	background: #f4f6fd;
 	color: #66738a;
-	font-size: 14px;
+	font-size: 13px;
 	font-weight: 500;
 
 	svg {
@@ -644,7 +644,7 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
-	padding: 0 24px 20px;
+	padding: 0 24px 16px;
 	background: #ffffff;
 	flex-wrap: wrap;
 }
@@ -656,8 +656,8 @@
 .compareControlGrid {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
-	gap: 14px;
-	padding: 20px 24px 16px;
+	gap: 12px;
+	padding: 16px 24px 12px;
 }
 
 .compareControlBlock {
@@ -678,7 +678,7 @@
 	}
 
 	:global(.ant-select-selector) {
-		min-height: 46px !important;
+		min-height: 42px !important;
 		border-radius: 12px !important;
 		border-color: #dce3f0 !important;
 		box-shadow: none !important;
@@ -687,6 +687,19 @@
 
 .compareControlBlockWide {
 	grid-column: span 2;
+}
+
+.compareStaticControl {
+	height: 42px;
+	padding: 0 14px;
+	border: 1px solid #dce3f0;
+	border-radius: 12px;
+	display: flex;
+	align-items: center;
+	background: #fbfcfe;
+	color: #334155;
+	font-size: 14px;
+	font-weight: 600;
 }
 
 .compareSelectionMeta {
@@ -698,12 +711,12 @@
 	span {
 		display: inline-flex;
 		align-items: center;
-		height: 32px;
+		height: 30px;
 		padding: 0 12px;
 		border-radius: 999px;
 		background: #eef3ff;
 		color: #3f4f7f;
-		font-size: 13px;
+		font-size: 12px;
 		font-weight: 600;
 	}
 }
@@ -716,7 +729,7 @@
 }
 
 .compareAlert {
-	margin: 0 24px 20px;
+	margin: 0 24px 16px;
 	border-radius: 12px !important;
 }
 
@@ -730,13 +743,13 @@
 }
 
 .compareModeSwitch button {
-	height: 40px;
+	height: 38px;
 	padding: 0 14px;
 	border-radius: 10px;
 	border: 1px solid transparent;
 	background: transparent;
 	color: #667389;
-	font-size: 13px;
+	font-size: 12px;
 	font-weight: 500;
 	display: inline-flex;
 	align-items: center;
@@ -752,13 +765,13 @@
 }
 
 .compareSelectButton {
-	height: 40px;
+	height: 38px;
 	padding: 0 14px;
 	border: 1px solid #d9e0ec;
 	border-radius: 12px;
 	background: #ffffff;
 	color: #3f4b61;
-	font-size: 13px;
+	font-size: 12px;
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
@@ -774,17 +787,18 @@
 	align-items: center;
 	gap: 8px;
 	flex-wrap: wrap;
+	padding: 0 24px 14px;
 }
 
 .compareEntityChip {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	height: 30px;
+	height: 28px;
 	padding: 0 12px;
 	border-radius: 999px;
 	color: #ffffff;
-	font-size: 13px;
+	font-size: 12px;
 	font-weight: 500;
 
 	button {
@@ -811,10 +825,10 @@
 .compareTabsRow button {
 	border: none;
 	background: transparent;
-	height: 48px;
+	height: 44px;
 	padding: 0;
 	color: #9aa4b7;
-	font-size: 13px;
+	font-size: 12px;
 	font-weight: 500;
 	display: inline-flex;
 	align-items: center;
@@ -831,9 +845,17 @@
 
 .compareCard {
 	border: 1px solid #e7ebf4 !important;
-	border-radius: 16px !important;
-	margin: 14px 24px 0 !important;
+	border-radius: 14px !important;
+	margin: 12px 24px 0 !important;
 	box-shadow: none !important;
+}
+
+.compareState {
+	min-height: 260px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
 }
 
 .compareSummaryGrid {
@@ -882,7 +904,7 @@
 
 	h3 {
 		margin: 0;
-		font-size: 32px;
+		font-size: 24px;
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -890,8 +912,8 @@
 	}
 
 	p {
-		margin: 6px 0 0;
-		font-size: 14px;
+		margin: 4px 0 0;
+		font-size: 13px;
 		color: #95a0b4;
 	}
 }
@@ -935,7 +957,7 @@
 .compareMatrixHeader,
 .compareMatrixRow {
 	display: grid;
-	grid-template-columns: 240px 70px repeat(8, minmax(130px, 1fr));
+	grid-template-columns: 240px 70px repeat(4, minmax(130px, 1fr));
 	gap: 10px;
 	align-items: center;
 	min-width: 980px;
@@ -949,7 +971,7 @@
 }
 
 .compareMatrixRow {
-	padding: 10px 0;
+	padding: 12px 0;
 	border-top: 1px solid #eef2f8;
 }
 
@@ -972,7 +994,7 @@
 
 	strong {
 		display: block;
-		font-size: 16px;
+		font-size: 15px;
 		color: #111a2d;
 	}
 
@@ -996,7 +1018,7 @@
 }
 
 .compareMetricCell {
-	height: 56px;
+	height: 54px;
 	border-radius: 12px;
 	border: 1px solid #e0e5f0;
 	display: flex;
@@ -1006,7 +1028,7 @@
 	gap: 3px;
 
 	b {
-		font-size: 15px;
+		font-size: 14px;
 		font-weight: 700;
 	}
 
@@ -1091,7 +1113,7 @@
 .compareIndexHeader,
 .compareIndexRow {
 	display: grid;
-	grid-template-columns: 180px repeat(6, minmax(90px, 1fr));
+	grid-template-columns: 180px repeat(4, minmax(100px, 1fr));
 	align-items: center;
 	gap: 10px;
 	min-width: 760px;
@@ -1128,6 +1150,12 @@
 .compareGapGrid {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
+	gap: 0;
+}
+
+.compareGapCard {
+	padding: 18px 20px;
+	border-top: 1px solid #edf1f7;
 }
 
 .compareGapHead {
@@ -1319,6 +1347,15 @@
 .compareTrendCards {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+	padding-top: 12px;
+}
+
+.compareTrendCard {
+	border: 1px solid #e7ebf4;
+	border-radius: 14px;
+	padding: 16px;
+	background: linear-gradient(180deg, #fbfcff 0%, #f8fafc 100%);
 }
 
 .compareTrendCardInner {
@@ -1340,7 +1377,14 @@
 	}
 
 	b {
-		font-size: 14px;
+		font-size: 16px;
+		color: #0f172a;
+	}
+
+	small {
+		font-size: 12px;
+		color: #64748b;
+		text-align: center;
 	}
 }
 
@@ -1475,11 +1519,11 @@
 	}
 
 	.compareHeroTitle h2 {
-		font-size: 28px;
+		font-size: 26px;
 	}
 
 	.compareHeroTitle span {
-		font-size: 16px;
+		font-size: 15px;
 	}
 
 	.compareHero p {

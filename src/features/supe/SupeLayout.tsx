@@ -452,12 +452,11 @@ export function SupeLayout() {
           <Outlet />
         </main>
 
-        <div className={styles.promptDock}>
-          <PromptCommandBar
-            submitLabel={isAsk ? 'Send to Ask' : 'Ask'}
-            onSubmit={(question) => navigate(`${supeAskRoute}?q=${encodeURIComponent(question)}`)}
-          />
-        </div>
+        {!isAsk ? (
+          <div className={styles.promptDock}>
+            <PromptCommandBar onSubmit={(question) => navigate(`${supeAskRoute}?q=${encodeURIComponent(question)}`)} />
+          </div>
+        ) : null}
       </div>
 
       <ActionLogPanel open={actionLogOpen} onClose={() => setActionLogOpen(false)} />

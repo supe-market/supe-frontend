@@ -33,6 +33,7 @@ export function PromptCommandBar({
   disabled = false,
   submitLabel = 'Ask',
   compact = false,
+  maxVisibleSuggestions = compact ? 3 : 3,
   suggestions = LEADERSHIP_PROMPT_SUGGESTIONS
 }: {
   onSubmit: (value: string) => void;
@@ -40,6 +41,7 @@ export function PromptCommandBar({
   disabled?: boolean;
   submitLabel?: string;
   compact?: boolean;
+  maxVisibleSuggestions?: number;
   suggestions?: string[];
 }) {
   const [value, setValue] = useState('');
@@ -179,7 +181,7 @@ export function PromptCommandBar({
 
         {!compact ? (
           <div className={styles.promptComposerQuickRow}>
-            {suggestions.slice(0, 4).map((question) => (
+            {suggestions.slice(0, maxVisibleSuggestions).map((question) => (
               <button key={question} type="button" className={styles.promptComposerChip} onClick={() => handleQuickPick(question)}>
                 {question}
               </button>

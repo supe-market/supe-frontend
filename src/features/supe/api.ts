@@ -38,7 +38,13 @@ export const supeApi = {
         startDate: target.startDate,
         endDate: target.endDate,
         status: target.status === 'paused' ? 'paused' : target.status,
-        snapshots: target.snapshots || []
+        assignmentEntityType: target.assignmentEntityType || 'salesman',
+        assigneeLabel: target.assigneeLabel || null,
+        latestSnapshotDate: target.latestSnapshotDate || null,
+        snapshotCount: Number(target.snapshotCount || 0),
+        statusLabel: target.statusLabel || null,
+        varianceValue: Number(target.varianceValue || 0),
+        variancePct: Number(target.variancePct || 0)
       }));
       return {
         ...response,
@@ -99,6 +105,12 @@ export const supeApi = {
       selectedMetrics: payload.metrics || payload.selectedMetrics || [],
       periodLabel: payload.timeRange || payload.periodLabel || 'mtd'
     });
+  },
+  getGoalTrajectory(goalId: string | number, params: Record<string, unknown> = {}) {
+    return analyticsApi.get(`/targets/assignments/${goalId}/trajectory`, { params });
+  },
+  getSnapshotTimeseries(params: Record<string, unknown> = {}) {
+    return analyticsApi.get('/snapshots/timeseries', { params });
   },
   listTargets() {
     return analyticsApi.get('/targets');

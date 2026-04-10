@@ -8,6 +8,19 @@ import {
   LineChartOutlined,
   SwapOutlined
 } from '@ant-design/icons';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts';
 import styles from '../index.module.scss';
 import supeApi from '../api';
 
@@ -75,14 +88,14 @@ function extractEntity(entityType: CompareEntityType, row: any): CompareEntityOp
   }
   if (entityType === 'sku') {
     return {
-      id: String(row.skuId),
-      name: row.skuName || row.sku || String(row.skuId),
-      sub: row.brandName || ''
+      id: String(row.skuId || row.id),
+      name: row.skuName || row.sku || row.name || String(row.skuId || row.id),
+      sub: row.brandName || row.category || ''
     };
   }
   return {
-    id: String(row.distributorId),
-    name: row.distributorName || String(row.distributorId),
+    id: String(row.distributorId || row.id),
+    name: row.distributorName || row.name || String(row.distributorId || row.id),
     sub: row.region || row.zone || ''
   };
 }
@@ -215,6 +228,7 @@ export function CompareView() {
   const gapCards = compareData?.sections?.gapOpportunities || [];
   const headToHeadPairs = compareData?.sections?.headToHead?.pairs || [];
   const trendMetrics = compareData?.sections?.trendDivergence?.metrics || [];
+  const summaryCards = compareData?.summary || [];
 
   useEffect(() => {
     const defaultLeft = compareData?.sections?.headToHead?.defaultLeftEntityId || '';
@@ -223,19 +237,37 @@ export function CompareView() {
     setHeadToHeadRight(defaultRight && defaultRight !== defaultLeft ? defaultRight : defaultLeft);
   }, [compareData]);
 
-  const selectedHeadToHead = useMemo(() => {
-    return (
-      headToHeadPairs.find(
-        (pair: any) =>
-          (pair.leftEntityId === headToHeadLeft && pair.rightEntityId === headToHeadRight) ||
-          (pair.leftEntityId === headToHeadRight && pair.rightEntityId === headToHeadLeft)
-      ) || headToHeadPairs[0]
-    );
-  }, [headToHeadLeft, headToHeadPairs, headToHeadRight]);
+  const selectedHeadToHead = useMemo(
+    () =>
+      (
+        headToHeadPairs.find(
+          (pair: any) =>
+            (pair.leftEntityId === headToHeadLeft && pair.rightEntityId === headToHeadRight) ||
+            (pair.leftEntityId === headToHeadRight && pair.rightEntityId === headToHeadLeft)
+        ) || headToHeadPairs[0]
+      ),
+    [headToHeadLeft, headToHeadPairs, headToHeadRight]
+  );
 
-  const activeTrendMetric = useMemo(() => {
-    return trendMetrics.find((metric: any) => metric.metricKey === focusMetric) || trendMetrics[0] || null;
-  }, [focusMetric, trendMetrics]);
+  const activeTrendMetric = useMemo(
+    () => trendMetrics.find((metric: any) => metric.metricKey === focusMetric) || trendMetrics[0] || null,
+    [focusMetric, trendMetrics]
+  );
+
+  const activeIndexMetric = useMemo(
+    () => metricDefinitions.find((metric) => metric.key === focusMetric) || metricDefinitions[0],
+    [focusMetric, metricDefinitions]
+  );
+
+  const indexChartRows = useMemo(
+    () =>
+      indexRows.map((row: any, index: number) => ({
+        entityName: row.entityName,
+        value: Number(row.indices?.[focusMetric]?.index || 0),
+        color: MODE_COLORS[index % MODE_COLORS.length]
+      })),
+    [focusMetric, indexRows]
+  );
 
   return (
     <div className={styles.comparePage}>
@@ -257,12 +289,7 @@ export function CompareView() {
             <label>Entity</label>
             <div className={styles.compareModeSwitch}>
               {ENTITY_OPTIONS.map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  className={entityType === option.key ? styles.compareModeActive : undefined}
-                  onClick={() => setEntityType(option.key)}
-                >
+                <button key={option.key} type="button" className={entityType === option.key ? styles.compareModeActive : undefined} onClick={() => setEntityType(option.key)}>
                   {option.label}
                 </button>
               ))}
@@ -283,7 +310,7 @@ export function CompareView() {
               placeholder="Choose at least 2 entities"
               onChange={(values) => setSelectedEntityIds(values as string[])}
               options={entityOptions.map((entity) => ({
-                label: entity.name,
+                label: entity.sub ? `${entity.name} · ${entity.sub}` : entity.name,
                 value: entity.id
               }))}
             />
@@ -354,6 +381,24 @@ export function CompareView() {
         </Card>
       ) : (
         <>
+          <Card className={styles.compareCard} bordered={false}>
+            <div className={styles.compareSummaryGrid}>
+              {summaryCards.map((summary: any) => {
+                const metric = metricDefinitions.find((item) => item.key === summary.metricKey);
+                return (
+                  <div key={summary.metricKey} className={styles.compareSummaryCard}>
+                    <div className={styles.compareSummaryLabel}>{summary.label}</div>
+                    <div className={styles.compareSummaryValue}>{formatMetricValue(metric, Number(summary.average || 0))}</div>
+                    <div className={styles.compareSummaryMeta}>
+                      <span>Min {formatMetricValue(metric, Number(summary.min || 0))}</span>
+                      <span>Max {formatMetricValue(metric, Number(summary.max || 0))}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
           {analysisTab === 'heatmap' ? (
             <Card className={styles.compareCard} bordered={false}>
               <div className={styles.compareCardHead}>
@@ -419,26 +464,46 @@ export function CompareView() {
                 ))}
               </div>
 
-              <div className={styles.compareIndexTable}>
-                <div className={styles.compareIndexHeader}>
-                  <div>Entity</div>
-                  {metricDefinitions.map((metric) => (
-                    <div key={metric.key}>{metric.shortLabel}</div>
-                  ))}
+              <div className={styles.compareSplitGrid}>
+                <div style={{ padding: '16px 16px 16px 0', minHeight: 320 }}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={indexChartRows} layout="vertical" margin={{ top: 8, right: 16, bottom: 8, left: 16 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edf1f8" />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: '#98a2b3' }} />
+                      <YAxis type="category" dataKey="entityName" width={110} tick={{ fontSize: 11, fill: '#475467' }} />
+                      <Tooltip formatter={(value: any) => [`${Math.round(Number(value))}`, `${activeIndexMetric?.label || 'Index'} index`]} />
+                      <ReferenceLine x={100} stroke="#98a2b3" strokeDasharray="6 4" />
+                      <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                        {indexChartRows.map((row: { entityName: string; color: string }) => (
+                          <Cell key={row.entityName} fill={row.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-                {indexRows.map((row: any) => (
-                  <div key={row.entityId} className={styles.compareIndexRow}>
-                    <div>{row.entityName}</div>
-                    {metricDefinitions.map((metric) => {
-                      const index = Math.round(Number(row.indices?.[metric.key]?.index || 0));
-                      return (
-                        <div key={metric.key} className={index >= 100 ? styles.compareGood : styles.compareBad}>
-                          {index}
-                        </div>
-                      );
-                    })}
+                <div>
+                  <div className={styles.compareIndexTable}>
+                    <div className={styles.compareIndexHeader}>
+                      <div>Entity</div>
+                      {metricDefinitions.map((metric) => (
+                        <div key={metric.key}>{metric.shortLabel}</div>
+                      ))}
+                    </div>
+                    {indexRows.map((row: any) => (
+                      <div key={row.entityId} className={styles.compareIndexRow}>
+                        <div>{row.entityName}</div>
+                        {metricDefinitions.map((metric) => {
+                          const index = Math.round(Number(row.indices?.[metric.key]?.index || 0));
+                          return (
+                            <div key={metric.key} className={index >= 100 ? styles.compareGood : styles.compareBad}>
+                              {index}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </Card>
           ) : null}
@@ -568,18 +633,41 @@ export function CompareView() {
               </div>
 
               {activeTrendMetric ? (
-                <div className={styles.compareTrendCards}>
-                  {activeTrendMetric.series.map((series: any, index: number) => (
-                    <div key={series.entityId} className={styles.compareTrendCard}>
-                      <div className={styles.compareTrendCardInner}>
-                        <span style={{ backgroundColor: MODE_COLORS[index % MODE_COLORS.length] }} />
-                        <div>{series.entityName}</div>
-                        <b>{formatMetricValue(metricDefinitions.find((item) => item.key === activeTrendMetric.metricKey), Number(series.latestValue || 0))}</b>
-                        <small>{Number(series.changePct || 0).toFixed(1)}% vs oldest point</small>
+                <>
+                  <div style={{ marginTop: 16, height: 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#edf1f8" />
+                        <XAxis dataKey="date" type="category" allowDuplicatedCategory={false} tick={{ fontSize: 11, fill: '#98a2b3' }} />
+                        <YAxis tick={{ fontSize: 11, fill: '#98a2b3' }} tickFormatter={(value) => formatMetricValue(metricDefinitions.find((item) => item.key === activeTrendMetric.metricKey), Number(value))} />
+                        <Tooltip formatter={(value: any) => [formatMetricValue(metricDefinitions.find((item) => item.key === activeTrendMetric.metricKey), Number(value)), activeTrendMetric.label]} />
+                        {activeTrendMetric.series.map((series: any, index: number) => (
+                          <Line
+                            key={series.entityId}
+                            data={series.points}
+                            dataKey="value"
+                            name={series.entityName}
+                            stroke={MODE_COLORS[index % MODE_COLORS.length]}
+                            strokeWidth={2.5}
+                            dot={{ r: 3 }}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className={styles.compareTrendCards}>
+                    {activeTrendMetric.series.map((series: any, index: number) => (
+                      <div key={series.entityId} className={styles.compareTrendCard}>
+                        <div className={styles.compareTrendCardInner}>
+                          <span style={{ backgroundColor: MODE_COLORS[index % MODE_COLORS.length] }} />
+                          <div>{series.entityName}</div>
+                          <b>{formatMetricValue(metricDefinitions.find((item) => item.key === activeTrendMetric.metricKey), Number(series.latestValue || 0))}</b>
+                          <small>{Number(series.changePct || 0).toFixed(1)}% vs oldest point</small>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </>
               ) : (
                 <div className={styles.compareState}>
                   <Empty description="No historical trend data is available for the selected cohort." />

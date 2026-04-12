@@ -428,8 +428,9 @@ export function ImportsView() {
                 Upload once. See commit state and refresh health immediately.
               </Typography.Title>
               <Typography.Paragraph style={{ marginTop: 12, marginBottom: 0, fontSize: 16, color: '#4B5563', maxWidth: 820 }}>
-                The importer accepts a strict <code>orders_book</code> <code>.xlsx</code>, commits valid rows in the background,
-                then runs snapshot refresh as a separate job. This screen keeps those two stages visibly separate.
+                The importer accepts an <code>orders_book</code> <code>.xlsx</code>, derives missing outlet, brand, and line
+                identifiers when business fields are present, commits valid rows in the background, then runs snapshot refresh as
+                a separate job. This screen keeps those two stages visibly separate.
               </Typography.Paragraph>
             </div>
             <Space wrap>
@@ -480,8 +481,8 @@ export function ImportsView() {
               </Typography.Text>
               <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
                 {[
-                  ['1', 'Template gate', 'Header and sheet name are validated before the batch is accepted.'],
-                  ['2', 'Bulk commit', 'Rows are normalized, validated, and inserted in bulk into canonical tables.'],
+                  ['1', 'Template gate', 'Headers are validated before the batch is accepted.'],
+                  ['2', 'Bulk commit', 'Rows are normalized, missing technical IDs are derived where possible, and data is inserted in bulk.'],
                   ['3', 'Refresh job', 'Snapshots and downstream state rebuild after the import is already committed.']
                 ].map(([step, title, body]) => (
                   <div
@@ -590,7 +591,8 @@ export function ImportsView() {
                     {isDragging ? 'Drop the workbook to start import' : 'Drop your .xlsx here or click to browse'}
                   </Typography.Title>
                   <Typography.Text style={{ color: '#4B5563' }}>
-                    CSV, XLS, alternate sheet names, and loose headers are rejected immediately.
+                    CSV, XLS, and loose headers are rejected immediately. Outlet, brand, and line IDs can be inferred if the
+                    business fields are present.
                   </Typography.Text>
                 </Space>
               )}

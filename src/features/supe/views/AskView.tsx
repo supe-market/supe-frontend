@@ -4,7 +4,7 @@
  * Leadership-console style Ask surface with streamed narrative/code state,
  * inline structured report blocks, and a separate inspector for report/code.
  */
-import { Button, Empty, Select, Skeleton, Space, Table, Tag, Tabs, Typography } from 'antd';
+import { Button, Empty, Skeleton, Space, Table, Tag, Tabs, Typography } from 'antd';
 import { CodeOutlined, CopyOutlined, MessageOutlined, PlusOutlined, ShareAltOutlined, StopOutlined } from '@ant-design/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -892,96 +892,55 @@ export function AskView() {
 				</section>
 
 				<aside className={styles.askDetailPane}>
-					<div className={styles.askDetailHeader}>
-						<div>
-							<div className={styles.askRailTitle}>Run detail</div>
-							<Typography.Text type="secondary">
-								{selectedRun ? selectedRun.question : 'Select or create a thread to inspect the latest run.'}
-							</Typography.Text>
-						</div>
-						{runs.length ? (
-							<Select
-								size="small"
-								value={selectedRun?.id}
-								onChange={(value) => {
-									updateActiveRunId(value);
-									const nextRun = runs.find((run) => run.id === value);
-									if (nextRun && ['queued', 'running'].includes(nextRun.status)) {
-										connectRunEvents(value, selectedThreadIdRef.current);
-										return;
-									}
-									closeEventStream();
-								}}
-								style={{ minWidth: 180 }}
-								options={runs.map((run, index) => ({ label: buildRunLabel(run, index), value: run.id }))}
-							/>
-						) : null}
-					</div>
-
-					{selectedRun ? (
-						<>
-							<div className={styles.askRunStatusRow}>
-								<Tag color={formatStatus(selectedRun.status)}>{selectedRun.status}</Tag>
-								{selectedRun.error_message ? <span className={styles.askRunError}>{selectedRun.error_message}</span> : null}
-							</div>
-
-							<div className={styles.askEventList}>
-								{selectedEvents.slice(-6).map((event) => (
-									<div key={event.id} className={styles.askEventItem}>
-										<div className={styles.askEventType}>{describeEvent(event.eventType)}</div>
-										<div className={styles.askEventMeta}>
-											{event.payload?.message || event.payload?.line || event.payload?.title || event.payload?.runner || ''}
+					<Tabs
+						activeKey={panelTab}
+						onChange={(value) => setPanelTab(value as 'report' | 'code')}
+						items={[
+							{
+								key: 'report',
+								label: 'Report',
+								children: selectedRun ? (
+									<div className={styles.askInspectorStack}>
+										<div className={styles.askRunStatusRow}>
+											<Tag color={formatStatus(selectedRun.status)}>{selectedRun.status}</Tag>
+											{selectedRun.error_message ? <span className={styles.askRunError}>{selectedRun.error_message}</span> : null}
 										</div>
+										<ReportSectionRail plan={selectedRun.artifact_plan} />
+										<LeadershipHighlights highlights={selectedRun.artifact_plan?.key_highlights || []} />
+										{selectedArtifacts.length ? (
+											<div className={styles.askArtifactsStack}>
+												{selectedArtifacts.map((artifact) => (
+													<AskArtifactRenderer key={artifact.id} artifact={artifact} />
+												))}
+											</div>
+										) : (
+											<Empty description="No report artifacts yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+										)}
 									</div>
-								))}
-							</div>
-
-							<Tabs
-								activeKey={panelTab}
-								onChange={(value) => setPanelTab(value as 'report' | 'code')}
-								items={[
-									{
-										key: 'report',
-										label: 'Report',
-										children: (
-											<div className={styles.askInspectorStack}>
-												<ReportSectionRail plan={selectedRun.artifact_plan} />
-												<LeadershipHighlights highlights={selectedRun.artifact_plan?.key_highlights || []} />
-												{selectedArtifacts.length ? (
-													<div className={styles.askArtifactsStack}>
-														{selectedArtifacts.map((artifact) => (
-															<AskArtifactRenderer key={artifact.id} artifact={artifact} />
-														))}
-													</div>
-												) : (
-													<Empty description="No report artifacts yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-												)}
-											</div>
-										)
-									},
-									{
-										key: 'code',
-										label: (
-											<span>
-												<CodeOutlined /> Code
-											</span>
-										),
-										children: (
-											<div className={styles.askCodePanel}>
-												<pre className={styles.askCodeBlock}>{streamedCode || selectedRun.python_code || 'No code generated yet.'}</pre>
-												{selectedStdout.length ? <pre className={styles.askLogBlock}>{selectedStdout.join('\n')}</pre> : null}
-											</div>
-										)
-									}
-								]}
-							/>
-						</>
-					) : (
-						<Empty description="No run selected" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-					)}
+								) : (
+									<Empty description="No report yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+								)
+							},
+							{
+								key: 'code',
+								label: (
+									<span>
+										<CodeOutlined /> Code
+									</span>
+								),
+								children: selectedRun ? (
+									<div className={styles.askCodePanel}>
+										<pre className={styles.askCodeBlock}>{streamedCode || selectedRun.python_code || 'No code generated yet.'}</pre>
+										{selectedStdout.length ? <pre className={styles.askLogBlock}>{selectedStdout.join('\n')}</pre> : null}
+									</div>
+								) : (
+									<Empty description="No code yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+								)
+							}
+						]}
+					/>
 				</aside>
 			</div>
 		</div>
 	);
 }
-

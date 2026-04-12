@@ -100,6 +100,29 @@ export interface ISupeAskThread {
 	latest_question?: string | null;
 }
 
+export interface ISupeAskReportSection {
+	title: string;
+	subtitle: string;
+}
+
+export interface ISupeAskKeyHighlight {
+	title: string;
+	detail: string;
+	value: string;
+	tone: string;
+}
+
+export interface ISupeAskArtifactPlan {
+	artifacts?: Array<{
+		type: string;
+		title: string;
+		reason: string;
+	}>;
+	report_sections?: ISupeAskReportSection[];
+	key_highlights?: ISupeAskKeyHighlight[];
+	suggested_next_questions?: string[];
+}
+
 export interface ISupeAskMessage {
 	id: string;
 	thread_id: string;
@@ -129,7 +152,7 @@ export interface ISupeAskRun {
 	assistant_summary?: string | null;
 	python_code?: string | null;
 	retrieval_context?: Record<string, any> | null;
-	artifact_plan?: Record<string, any> | null;
+	artifact_plan?: ISupeAskArtifactPlan | null;
 	error_message?: string | null;
 	created_at: string;
 	updated_at: string;

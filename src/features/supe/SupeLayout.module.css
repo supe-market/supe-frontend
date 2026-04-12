@@ -265,6 +265,91 @@
   color: inherit;
 }
 
+.askThreadNavSection {
+  margin: 4px 0 10px;
+  padding: 4px 8px 0 34px;
+}
+
+.askThreadNavHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.askThreadNavTitle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6f7a92;
+}
+
+.askThreadCreateButton {
+  border: none;
+  background: transparent;
+  color: #9db1ff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.askThreadCreateButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.askThreadNavList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.askThreadNavItem {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--supe-transition-fast), border-color var(--supe-transition-fast);
+}
+
+.askThreadNavItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(157, 177, 255, 0.28);
+}
+
+.askThreadNavItemActive {
+  background: rgba(67, 97, 238, 0.18);
+  border-color: rgba(115, 141, 255, 0.38);
+}
+
+.askThreadNavItemTitle {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #eef2ff;
+  line-height: 1.35;
+}
+
+.askThreadNavItemMeta {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #8792ad;
+  line-height: 1.4;
+}
+
+.askThreadNavEmpty {
+  padding: 8px 0;
+  font-size: 11px;
+  color: #6f7a92;
+}
+
 .secondaryDivider {
   height: 1px;
   margin: 8px 12px;

@@ -31,6 +31,7 @@ import { useAuth } from '../auth/AuthContext';
 import supeApi from './api';
 import { ActionLogPanel } from './components/ActionLogPanel';
 import { PromptCommandBar } from './components/PromptCommandBar';
+import type { ISupeAskThread } from './types';
 import {
   supeActRoute,
   supeAskRoute,
@@ -109,6 +110,9 @@ export function SupeLayout() {
   const [exploreExpanded, setExploreExpanded] = useState(true);
   const [actionLogOpen, setActionLogOpen] = useState(false);
   const [actionLogBadgeCount, setActionLogBadgeCount] = useState(0);
+  const [askThreads, setAskThreads] = useState<ISupeAskThread[]>([]);
+  const [loadingAskThreads, setLoadingAskThreads] = useState(false);
+  const [creatingAskThread, setCreatingAskThread] = useState(false);
 
   const periodMeta = useMemo(() => {
     const now = new Date();
@@ -128,6 +132,7 @@ export function SupeLayout() {
   const isAsk = location.pathname === supeAskRoute;
   const isAct = location.pathname === supeActRoute || location.pathname === supeSchemesRoute;
   const currentEntity = searchParams.get('entity') || 'salesman';
+  const currentAskThreadId = searchParams.get('thread') || '';
   const sidebarWidth = collapsed ? COLLAPSED_SIDEBAR_WIDTH : DESKTOP_SIDEBAR_WIDTH;
 
   useEffect(() => {
@@ -163,6 +168,36 @@ export function SupeLayout() {
       window.removeEventListener('supe-actions-updated', handler);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAsk) {
+      return;
+    }
+    let active = true;
+    const loadAskThreads = async () => {
+      try {
+        setLoadingAskThreads(true);
+        const response = await supeApi.listAskThreads();
+        if (!active) return;
+        setAskThreads(response?.data?.data?.threads || []);
+      } catch {
+        if (active) {
+          setAskThreads([]);
+        }
+      } finally {
+        if (active) {
+          setLoadingAskThreads(false);
+        }
+      }
+    };
+    void loadAskThreads();
+    const handler = () => void loadAskThreads();
+    window.addEventListener('supe-ask-threads-updated', handler);
+    return () => {
+      active = false;
+      window.removeEventListener('supe-ask-threads-updated', handler);
+    };
+  }, [isAsk]);
 
   const shellStyle = {
     '--sidebar-width': `${sidebarWidth}px`
@@ -286,6 +321,58 @@ export function SupeLayout() {
           </span>
           {!collapsed ? <span className={styles.primaryLinkText}>Ask</span> : null}
         </NavLink>
+
+        {isAsk && !collapsed ? (
+          <div className={styles.askThreadNavSection}>
+            <div className={styles.askThreadNavHeader}>
+              <span className={styles.askThreadNavTitle}>Threads</span>
+              <button
+                type="button"
+                className={styles.askThreadCreateButton}
+                disabled={creatingAskThread}
+                onClick={async () => {
+                  try {
+                    setCreatingAskThread(true);
+                    const response = await supeApi.createAskThread({});
+                    const threadId = String(response?.data?.data?.thread?.id || '');
+                    if (!threadId) {
+                      return;
+                    }
+                    setDrawerOpen(false);
+                    window.dispatchEvent(new CustomEvent('supe-ask-threads-updated'));
+                    navigate(`${supeAskRoute}?thread=${encodeURIComponent(threadId)}`);
+                  } finally {
+                    setCreatingAskThread(false);
+                  }
+                }}
+              >
+                + New chat
+              </button>
+            </div>
+            <div className={styles.askThreadNavList}>
+              {loadingAskThreads ? (
+                <div className={styles.askThreadNavEmpty}>Loading threads…</div>
+              ) : askThreads.length ? (
+                askThreads.slice(0, 10).map((thread) => (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    className={`${styles.askThreadNavItem} ${currentAskThreadId === thread.id ? styles.askThreadNavItemActive : ''}`}
+                    onClick={() => {
+                      setDrawerOpen(false);
+                      navigate(`${supeAskRoute}?thread=${encodeURIComponent(thread.id)}`);
+                    }}
+                  >
+                    <span className={styles.askThreadNavItemTitle}>{thread.title}</span>
+                    <span className={styles.askThreadNavItemMeta}>{thread.latest_question || thread.latest_run_status || 'No runs yet'}</span>
+                  </button>
+                ))
+              ) : (
+                <div className={styles.askThreadNavEmpty}>No Ask threads yet.</div>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         <div className={styles.secondaryDivider} style={{ margin: collapsed ? '8px auto' : '8px 12px' }} />
 

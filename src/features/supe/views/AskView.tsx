@@ -1,55 +1,31 @@
 /**
  * Ask workspace view.
  *
- * This screen renders the full Ask flow: thread history, message timeline,
- * live run events, result artifacts, and the generated Python code tab.
+ * Leadership-console style Ask surface with streamed narrative/code state,
+ * inline structured report blocks, and a separate inspector for report/code.
  */
-import {
-	Button,
-	Empty,
-	List,
-	Select,
-	Skeleton,
-	Space,
-	Table,
-	Tag,
-	Tabs,
-	Typography
-} from 'antd';
-import {
-	CodeOutlined,
-	MessageOutlined,
-	PlusOutlined,
-	StopOutlined
-} from '@ant-design/icons';
+import { Button, Empty, Select, Skeleton, Space, Table, Tag, Tabs, Typography } from 'antd';
+import { CodeOutlined, CopyOutlined, MessageOutlined, PlusOutlined, ShareAltOutlined, StopOutlined } from '@ant-design/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-	Bar,
-	CartesianGrid,
-	ComposedChart,
-	Legend,
-	Line,
-	ResponsiveContainer,
-	Tooltip,
-	XAxis,
-	YAxis
-} from 'recharts';
+import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import supeApi from '../api';
+import { LEADERSHIP_PROMPT_SUGGESTIONS, PromptCommandBar } from '../components/PromptCommandBar';
 import type {
 	ISupeAskArtifact,
+	ISupeAskArtifactPlan,
 	ISupeAskEvent,
+	ISupeAskKeyHighlight,
 	ISupeAskMessage,
 	ISupeAskRun,
 	ISupeAskThread
 } from '../types';
-import { LEADERSHIP_PROMPT_SUGGESTIONS, PromptCommandBar } from '../components/PromptCommandBar';
 import styles from '../index.module.scss';
 
 const ASK_CHART_COLORS = ['#1d4ed8', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#0369a1'];
+const ASK_THREAD_EVENT = 'supe-ask-threads-updated';
 
 function formatStatus(status?: string | null) {
-	/** Map run status values to Ant Design tag colors. */
 	switch (status) {
 		case 'completed':
 			return 'success';
@@ -65,10 +41,13 @@ function formatStatus(status?: string | null) {
 }
 
 function describeEvent(eventType: string) {
-	/** Convert raw backend event types into human-readable status labels. */
 	switch (eventType) {
 		case 'run.created':
 			return 'Run created';
+		case 'run.planning.delta':
+			return 'Planning';
+		case 'run.planning.completed':
+			return 'Planning complete';
 		case 'run.retrieval.started':
 			return 'Retrieval started';
 		case 'run.retrieval.iteration.started':
@@ -83,12 +62,16 @@ function describeEvent(eventType: string) {
 			return 'Retrieval completed';
 		case 'run.codegen.started':
 			return 'Code generation started';
+		case 'run.codegen.delta':
+			return 'Codegen stream';
 		case 'run.codegen.completed':
 			return 'Code generation completed';
 		case 'run.execution.started':
 			return 'Execution started';
 		case 'run.execution.progress':
 			return 'Execution update';
+		case 'run.execution.stdout':
+			return 'Execution log';
 		case 'run.completed':
 			return 'Completed';
 		case 'run.failed':
@@ -101,12 +84,10 @@ function describeEvent(eventType: string) {
 }
 
 function buildRunLabel(run: ISupeAskRun, index: number) {
-	/** Prefer the generated title, then fall back to a stable run label. */
 	return run.title || `Run ${index + 1}`;
 }
 
 function AskChart({ artifact }: { artifact: ISupeAskArtifact }) {
-	/** Render a lightweight chart preview from stored plotly-style artifact data. */
 	const payload = artifact.payload || {};
 	const traces = Array.isArray(payload?.data) ? payload.data : [];
 	const chartRowOrder: string[] = [];
@@ -173,15 +154,7 @@ function AskChart({ artifact }: { artifact: ISupeAskArtifact }) {
 						series.type === 'bar' ? (
 							<Bar key={series.dataKey} dataKey={series.dataKey} name={series.name} fill={series.color} radius={[6, 6, 0, 0]} />
 						) : (
-							<Line
-								key={series.dataKey}
-								type="monotone"
-								dataKey={series.dataKey}
-								name={series.name}
-								stroke={series.color}
-								strokeWidth={2}
-								dot={false}
-							/>
+							<Line key={series.dataKey} type="monotone" dataKey={series.dataKey} name={series.name} stroke={series.color} strokeWidth={2} dot={false} />
 						)
 					)}
 				</ComposedChart>
@@ -190,23 +163,82 @@ function AskChart({ artifact }: { artifact: ISupeAskArtifact }) {
 	);
 }
 
-function resolveSelectedThreadId(
-	threads: ISupeAskThread[],
-	currentSelectedThreadId: string,
-	preferredThreadId?: string
-) {
-	/** Keep the selected thread stable across refreshes and new thread creation. */
-	if (preferredThreadId && threads.some((thread) => thread.id === preferredThreadId)) {
-		return preferredThreadId;
+function appendChunk(current: string, next: string) {
+	if (!next) return current;
+	return current ? `${current} ${next}`.trim() : next.trim();
+}
+
+function takeSuggestedQuestions(plan?: ISupeAskArtifactPlan | null) {
+	return Array.isArray(plan?.suggested_next_questions) ? plan!.suggested_next_questions.slice(0, 3) : [];
+}
+
+function toneClassName(tone: string) {
+	const normalized = tone.toLowerCase();
+	if (normalized.includes('easy') || normalized.includes('positive') || normalized.includes('good')) {
+		return styles.askHighlightTonePositive;
 	}
-	if (currentSelectedThreadId && threads.some((thread) => thread.id === currentSelectedThreadId)) {
-		return currentSelectedThreadId;
+	if (normalized.includes('medium') || normalized.includes('warning')) {
+		return styles.askHighlightToneWarning;
 	}
-	return threads[0]?.id || '';
+	return styles.askHighlightToneCritical;
+}
+
+function buildShareText(run: ISupeAskRun) {
+	const lines = [run.title || run.question, run.assistant_summary || ''];
+	const highlights = Array.isArray(run.artifact_plan?.key_highlights) ? run.artifact_plan?.key_highlights : [];
+	for (const highlight of highlights || []) {
+		lines.push(`- ${highlight.title}: ${highlight.value}`);
+	}
+	return lines.filter(Boolean).join('\n');
+}
+
+function LeadershipHighlights({ highlights }: { highlights: ISupeAskKeyHighlight[] }) {
+	if (!highlights.length) {
+		return null;
+	}
+	return (
+		<div className={styles.askHighlightsCard}>
+			<div className={styles.askSectionHeader}>
+				<span>Key Highlights</span>
+				<Typography.Text type="secondary">What needs attention</Typography.Text>
+			</div>
+			<div className={styles.askHighlightsList}>
+				{highlights.map((highlight, index) => (
+					<div key={`${highlight.title}_${index}`} className={styles.askHighlightRow}>
+						<div className={styles.askHighlightIndex}>{index + 1}</div>
+						<div className={styles.askHighlightBody}>
+							<div className={styles.askHighlightHeading}>
+								<span>{highlight.title}</span>
+								<span className={`${styles.askHighlightTone} ${toneClassName(highlight.tone)}`}>{highlight.tone}</span>
+							</div>
+							<div className={styles.askHighlightDetail}>{highlight.detail}</div>
+						</div>
+						<div className={styles.askHighlightValue}>{highlight.value}</div>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
+function ReportSectionRail({ plan }: { plan?: ISupeAskArtifactPlan | null }) {
+	const sections = Array.isArray(plan?.report_sections) ? plan!.report_sections : [];
+	if (!sections.length) {
+		return null;
+	}
+	return (
+		<div className={styles.askSectionRail}>
+			{sections.map((section) => (
+				<div key={`${section.title}_${section.subtitle}`} className={styles.askSectionRailItem}>
+					<div className={styles.askSectionRailTitle}>{section.title}</div>
+					<div className={styles.askSectionRailSubtitle}>{section.subtitle}</div>
+				</div>
+			))}
+		</div>
+	);
 }
 
 function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
-	/** Render the backend artifact union into the appropriate UI block. */
 	if (artifact.artifact_type === 'markdown') {
 		return (
 			<div className={styles.askArtifactCard}>
@@ -221,9 +253,10 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 			<div className={styles.askMetricArtifact}>
 				<div className={styles.askMetricLabel}>{artifact.payload?.label}</div>
 				<div className={styles.askMetricValue}>{String(artifact.payload?.value ?? '')}</div>
-				<Tag color={artifact.payload?.tone === 'positive' ? 'green' : artifact.payload?.tone === 'negative' ? 'red' : 'blue'}>
-					{artifact.payload?.tone || 'neutral'}
-				</Tag>
+				<div className={styles.askMetricMetaRow}>
+					{artifact.payload?.benchmark ? <span>{artifact.payload?.benchmark}</span> : <span>{artifact.title}</span>}
+					<span className={styles.askMetricTone}>{artifact.payload?.tone || 'neutral'}</span>
+				</div>
 			</div>
 		);
 	}
@@ -279,16 +312,98 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 	);
 }
 
+function StructuredAssistantMessage({
+	run,
+	artifacts,
+	onFollowUp
+}: {
+	run: ISupeAskRun;
+	artifacts: ISupeAskArtifact[];
+	onFollowUp: (question: string) => void;
+}) {
+	const followUps = takeSuggestedQuestions(run.artifact_plan);
+	const shareText = buildShareText(run);
+	return (
+		<div className={styles.askAssistantResponse}>
+			<div className={styles.askInterpretationRow}>
+				<span className={styles.askEngineBadge}>Built-in</span>
+				{run.retrieval_context?.finalContext?.questionGrounding?.intent ? (
+					<span className={styles.askInterpretationText}>
+						Understood as: {String(run.retrieval_context.finalContext.questionGrounding.intent).replace(/_/g, ' ')}
+					</span>
+				) : null}
+			</div>
+
+			{run.assistant_summary ? <div className={styles.askSummaryText}>{run.assistant_summary}</div> : null}
+			<ReportSectionRail plan={run.artifact_plan} />
+
+			{artifacts.length ? (
+				<div className={styles.askInlineArtifactStack}>
+					{artifacts.map((artifact) => (
+						<AskArtifactRenderer key={artifact.id} artifact={artifact} />
+					))}
+				</div>
+			) : null}
+
+			<LeadershipHighlights highlights={run.artifact_plan?.key_highlights || []} />
+
+			<div className={styles.askInlineActions}>
+				<Button
+					size="small"
+					icon={<ShareAltOutlined />}
+					onClick={async () => {
+						if (navigator.share) {
+							try {
+								await navigator.share({ title: run.title || 'Supe Ask', text: shareText });
+								return;
+							} catch {
+								// fall through to clipboard
+							}
+						}
+						await navigator.clipboard.writeText(shareText);
+					}}
+				>
+					Share
+				</Button>
+				<Button
+					size="small"
+					icon={<CopyOutlined />}
+					onClick={async () => {
+						await navigator.clipboard.writeText(shareText);
+					}}
+				>
+					Copy
+				</Button>
+			</div>
+
+			{followUps.length ? (
+				<div className={styles.askFollowUpRow}>
+					{followUps.map((question) => (
+						<button key={question} type="button" className={styles.askFollowUpChip} onClick={() => onFollowUp(question)}>
+							{question}
+						</button>
+					))}
+				</div>
+			) : null}
+		</div>
+	);
+}
+
 export function AskView() {
-	/** Main Ask screen used for thread management and run/result rendering. */
 	const [searchParams, setSearchParams] = useSearchParams();
 	const initialQuery = searchParams.get('q') || '';
+	const threadParam = searchParams.get('thread') || '';
+	const queryParam = searchParams.get('q') || '';
+
 	const [threads, setThreads] = useState<ISupeAskThread[]>([]);
 	const [selectedThreadId, setSelectedThreadId] = useState('');
 	const [messages, setMessages] = useState<ISupeAskMessage[]>([]);
 	const [runs, setRuns] = useState<ISupeAskRun[]>([]);
 	const [artifactsByRun, setArtifactsByRun] = useState<Record<string, ISupeAskArtifact[]>>({});
 	const [eventsByRun, setEventsByRun] = useState<Record<string, ISupeAskEvent[]>>({});
+	const [streamedPlanningByRun, setStreamedPlanningByRun] = useState<Record<string, string>>({});
+	const [streamedCodeByRun, setStreamedCodeByRun] = useState<Record<string, string>>({});
+	const [stdoutByRun, setStdoutByRun] = useState<Record<string, string[]>>({});
 	const [activeRunId, setActiveRunId] = useState('');
 	const [query, setQuery] = useState(initialQuery);
 	const [loadingThreads, setLoadingThreads] = useState(true);
@@ -296,17 +411,32 @@ export function AskView() {
 	const [submitting, setSubmitting] = useState(false);
 	const [composerError, setComposerError] = useState('');
 	const [panelTab, setPanelTab] = useState<'report' | 'code'>('report');
+
 	const eventSourceRef = useRef<EventSource | null>(null);
 	const hydratedQueryRef = useRef(initialQuery);
 	const bootstrapRunRef = useRef('');
 	const selectedThreadIdRef = useRef('');
 	const activeRunIdRef = useRef('');
 	const loadThreadRequestRef = useRef(0);
-	const queryParam = searchParams.get('q') || '';
 
-	const updateSelectedThreadId = (nextThreadId: string) => {
+	const syncThreadParam = (nextThreadId: string) => {
+		const nextParams = new URLSearchParams(searchParams);
+		if (nextThreadId) {
+			nextParams.set('thread', nextThreadId);
+		} else {
+			nextParams.delete('thread');
+		}
+		if (nextParams.toString() !== searchParams.toString()) {
+			setSearchParams(nextParams, { replace: true });
+		}
+	};
+
+	const updateSelectedThreadId = (nextThreadId: string, syncUrl = true) => {
 		selectedThreadIdRef.current = nextThreadId;
 		setSelectedThreadId(nextThreadId);
+		if (syncUrl) {
+			syncThreadParam(nextThreadId);
+		}
 	};
 
 	const updateActiveRunId = (nextRunId: string) => {
@@ -314,15 +444,14 @@ export function AskView() {
 		setActiveRunId(nextRunId);
 	};
 
-	const selectedRun = useMemo(() => {
-		return runs.find((run) => run.id === activeRunId) || runs[runs.length - 1] || null;
-	}, [activeRunId, runs]);
-
+	const selectedRun = useMemo(() => runs.find((run) => run.id === activeRunId) || runs[runs.length - 1] || null, [activeRunId, runs]);
 	const selectedArtifacts = selectedRun ? artifactsByRun[selectedRun.id] || [] : [];
 	const selectedEvents = selectedRun ? eventsByRun[selectedRun.id] || [] : [];
+	const selectedStdout = selectedRun ? stdoutByRun[selectedRun.id] || [] : [];
+	const streamedNarrative = selectedRun ? streamedPlanningByRun[selectedRun.id] || '' : '';
+	const streamedCode = selectedRun ? streamedCodeByRun[selectedRun.id] || selectedRun.python_code || '' : '';
 
 	const closeEventStream = () => {
-		/** Close any existing SSE subscription before switching runs or threads. */
 		if (eventSourceRef.current) {
 			eventSourceRef.current.close();
 			eventSourceRef.current = null;
@@ -333,32 +462,51 @@ export function AskView() {
 		setRuns((current) => current.map((run) => (run.id === runId ? { ...run, ...patch } : run)));
 	};
 
+	const hydrateRunStreams = (nextEventsByRun: Record<string, ISupeAskEvent[]>, nextRuns: ISupeAskRun[]) => {
+		const nextPlanning: Record<string, string> = {};
+		const nextCode: Record<string, string> = {};
+		const nextStdout: Record<string, string[]> = {};
+		for (const run of nextRuns) {
+			const runEvents = nextEventsByRun[run.id] || [];
+			let planningBuffer = '';
+			let codeBuffer = run.python_code || '';
+			const stdoutLines: string[] = [];
+			for (const event of runEvents) {
+				if (event.eventType === 'run.planning.delta') {
+					planningBuffer = appendChunk(planningBuffer, String(event.payload?.delta || ''));
+				}
+				if (event.eventType === 'run.codegen.delta') {
+					codeBuffer = appendChunk(codeBuffer, String(event.payload?.delta || ''));
+				}
+				if (event.eventType === 'run.execution.stdout') {
+					const line = String(event.payload?.line || '');
+					if (line) {
+						stdoutLines.push(line);
+					}
+				}
+			}
+			nextPlanning[run.id] = planningBuffer;
+			nextCode[run.id] = codeBuffer;
+			nextStdout[run.id] = stdoutLines;
+		}
+		setStreamedPlanningByRun(nextPlanning);
+		setStreamedCodeByRun(nextCode);
+		setStdoutByRun(nextStdout);
+	};
+
 	const refreshThreadRail = async (preferredThreadId?: string) => {
 		const response = await supeApi.listAskThreads();
 		const nextThreads = response?.data?.data?.threads || [];
 		setThreads(nextThreads);
-		const nextSelected = resolveSelectedThreadId(nextThreads, selectedThreadIdRef.current, preferredThreadId);
+		window.dispatchEvent(new CustomEvent(ASK_THREAD_EVENT));
+		const preferred = preferredThreadId || threadParam;
+		const nextSelected =
+			(preferred && nextThreads.some((thread: ISupeAskThread) => thread.id === preferred) ? preferred : '') ||
+			(selectedThreadIdRef.current && nextThreads.some((thread: ISupeAskThread) => thread.id === selectedThreadIdRef.current)
+				? selectedThreadIdRef.current
+				: nextThreads[0]?.id || '');
 		updateSelectedThreadId(nextSelected);
 		return nextSelected;
-	};
-
-	const loadThreads = async (preferredThreadId?: string) => {
-		try {
-			setLoadingThreads(true);
-			const nextSelected = await refreshThreadRail(preferredThreadId);
-			if (nextSelected) {
-				await loadThread(nextSelected, true);
-			} else {
-				closeEventStream();
-				setMessages([]);
-				setRuns([]);
-				setArtifactsByRun({});
-				setEventsByRun({});
-				updateActiveRunId('');
-			}
-		} finally {
-			setLoadingThreads(false);
-		}
 	};
 
 	const connectRunEvents = (runId: string, threadId: string) => {
@@ -372,6 +520,12 @@ export function AskView() {
 					...current,
 					[runId]: [...(current[runId] || []).filter((item) => item.id !== payload.id), payload]
 				}));
+				if (payload.eventType === 'run.planning.delta') {
+					setStreamedPlanningByRun((current) => ({ ...current, [runId]: appendChunk(current[runId] || '', String(payload.payload?.delta || '')) }));
+				}
+				if (payload.eventType === 'run.codegen.delta') {
+					setStreamedCodeByRun((current) => ({ ...current, [runId]: appendChunk(current[runId] || '', String(payload.payload?.delta || '')) }));
+				}
 				if (payload.eventType === 'run.codegen.completed') {
 					applyRunPatch(runId, {
 						title: String(payload.payload?.title || ''),
@@ -379,14 +533,19 @@ export function AskView() {
 						python_code: String(payload.payload?.pythonCode || ''),
 						artifact_plan: payload.payload?.artifactPlan || {}
 					});
+					setStreamedCodeByRun((current) => ({ ...current, [runId]: String(payload.payload?.pythonCode || current[runId] || '') }));
+				}
+				if (payload.eventType === 'run.execution.stdout') {
+					const line = String(payload.payload?.line || '');
+					if (line) {
+						setStdoutByRun((current) => ({ ...current, [runId]: [...(current[runId] || []), line] }));
+					}
 				}
 				if (payload.eventType === 'run.artifact' && payload.payload?.artifact) {
 					const artifact = payload.payload.artifact as ISupeAskArtifact;
 					setArtifactsByRun((current) => ({
 						...current,
-						[runId]: [...(current[runId] || []).filter((item) => item.id !== artifact.id), artifact].sort(
-							(left, right) => left.ordinal - right.ordinal
-						)
+						[runId]: [...(current[runId] || []).filter((item) => item.id !== artifact.id), artifact].sort((left, right) => left.ordinal - right.ordinal)
 					}));
 				}
 				if (payload.eventType === 'run.execution.progress') {
@@ -407,8 +566,8 @@ export function AskView() {
 					closeEventStream();
 					void Promise.allSettled([loadThread(threadId, false), refreshThreadRail(threadId)]);
 				}
-			} catch (_error) {
-				// Ignore malformed keep-alive events.
+			} catch {
+				// ignore malformed keepalive events
 			}
 		};
 		source.onerror = () => {
@@ -437,9 +596,11 @@ export function AskView() {
 			setRuns(nextRuns);
 			setArtifactsByRun(nextArtifactsByRun);
 			setEventsByRun(nextEventsByRun);
-			const nextRunId = activeRunIdRef.current && nextRuns.some((run: ISupeAskRun) => run.id === activeRunIdRef.current)
-				? activeRunIdRef.current
-				: nextRuns[nextRuns.length - 1]?.id || '';
+			hydrateRunStreams(nextEventsByRun, nextRuns);
+			const nextRunId =
+				activeRunIdRef.current && nextRuns.some((run: ISupeAskRun) => run.id === activeRunIdRef.current)
+					? activeRunIdRef.current
+					: nextRuns[nextRuns.length - 1]?.id || '';
 			updateActiveRunId(nextRunId);
 			if (connectActiveRun && nextRunId) {
 				const currentRun = nextRuns.find((run: ISupeAskRun) => run.id === nextRunId);
@@ -454,13 +615,36 @@ export function AskView() {
 		}
 	};
 
+	const loadThreads = async (preferredThreadId?: string) => {
+		try {
+			setLoadingThreads(true);
+			const nextSelected = await refreshThreadRail(preferredThreadId);
+			if (nextSelected) {
+				await loadThread(nextSelected, true);
+			} else {
+				closeEventStream();
+				setMessages([]);
+				setRuns([]);
+				setArtifactsByRun({});
+				setEventsByRun({});
+				setStreamedPlanningByRun({});
+				setStreamedCodeByRun({});
+				setStdoutByRun({});
+				updateActiveRunId('');
+			}
+		} finally {
+			setLoadingThreads(false);
+		}
+	};
+
 	const ensureThread = async () => {
 		if (selectedThreadIdRef.current) {
 			return selectedThreadIdRef.current;
 		}
 		const response = await supeApi.createAskThread({});
-		const threadId = response?.data?.data?.thread?.id as string;
+		const threadId = String(response?.data?.data?.thread?.id || '');
 		updateSelectedThreadId(threadId);
+		window.dispatchEvent(new CustomEvent(ASK_THREAD_EVENT));
 		await loadThreads(threadId);
 		return threadId;
 	};
@@ -470,14 +654,18 @@ export function AskView() {
 			setComposerError('');
 			closeEventStream();
 			const response = await supeApi.createAskThread({});
-			const threadId = response?.data?.data?.thread?.id as string;
+			const threadId = String(response?.data?.data?.thread?.id || '');
 			updateSelectedThreadId(threadId);
 			setMessages([]);
 			setRuns([]);
 			setArtifactsByRun({});
 			setEventsByRun({});
+			setStreamedPlanningByRun({});
+			setStreamedCodeByRun({});
+			setStdoutByRun({});
 			updateActiveRunId('');
 			setPanelTab('report');
+			window.dispatchEvent(new CustomEvent(ASK_THREAD_EVENT));
 			await loadThreads(threadId);
 		} catch (error: any) {
 			setComposerError(error?.response?.data?.detail || 'Failed to create Ask thread');
@@ -496,10 +684,13 @@ export function AskView() {
 			setComposerError('');
 			const threadId = await ensureThread();
 			const response = await supeApi.createAskMessage(threadId, { question: nextQuestion });
-			const runId = response?.data?.data?.run?.id as string;
+			const runId = String(response?.data?.data?.run?.id || '');
 			setQuery('');
 			updateActiveRunId(runId);
 			setPanelTab('report');
+			setStreamedPlanningByRun((current) => ({ ...current, [runId]: '' }));
+			setStreamedCodeByRun((current) => ({ ...current, [runId]: '' }));
+			setStdoutByRun((current) => ({ ...current, [runId]: [] }));
 			await loadThread(threadId, false);
 			await refreshThreadRail(threadId);
 			connectRunEvents(runId, threadId);
@@ -524,10 +715,10 @@ export function AskView() {
 	};
 
 	useEffect(() => {
-		void loadThreads();
+		void loadThreads(threadParam || undefined);
 		return () => closeEventStream();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [threadParam]);
 
 	useEffect(() => {
 		if (!queryParam) {
@@ -561,13 +752,18 @@ export function AskView() {
 				const nextParams = new URLSearchParams(searchParams);
 				nextParams.delete('q');
 				setSearchParams(nextParams, { replace: true });
-			} catch (_error) {
+			} catch {
 				bootstrapRunRef.current = '';
 			}
 		})();
-		// searchParams is intentionally included so the effect clears the consumed
-		// bootstrap query from the URL after successful thread/run creation.
 	}, [loadingThreads, queryParam, searchParams, setSearchParams, submitting]);
+
+	const latestAssistantRunId = [...messages].reverse().find((message) => message.role === 'assistant' && message.run_id)?.run_id || '';
+	const showStreamingBubble =
+		selectedRun &&
+		['queued', 'running'].includes(selectedRun.status) &&
+		(Boolean(streamedNarrative) || Boolean(streamedCode) || Boolean(selectedStdout.length)) &&
+		String(latestAssistantRunId || '') !== selectedRun.id;
 
 	return (
 		<div className={styles.askPage}>
@@ -575,83 +771,45 @@ export function AskView() {
 				<div>
 					<h1 className={styles.askHeaderTitle}>Ask</h1>
 					<p className={styles.askHeaderSubtitle}>
-						Conversational intelligence for live OMS snapshots, with streamed runs, reusable threads, and operator-friendly prompts.
+						Leadership-console Ask with structured report blocks, live code streaming, and reusable analytical threads.
 					</p>
 				</div>
-				<Button icon={<PlusOutlined />} onClick={() => void handleCreateThread()}>
-					New Thread
-				</Button>
+				<Space>
+					{selectedRun ? <Tag color={formatStatus(selectedRun.status)}>{selectedRun.status}</Tag> : null}
+					<Button icon={<PlusOutlined />} onClick={() => void handleCreateThread()}>
+						New chat
+					</Button>
+				</Space>
 			</div>
 
-			<div className={styles.askWorkspace}>
-				<aside className={styles.askThreadsRail}>
-					<div className={styles.askRailTitle}>Threads</div>
-					{loadingThreads ? (
-						<div className={styles.askRailLoader}>
-							<Skeleton active paragraph={{ rows: 6 }} />
-						</div>
-					) : threads.length ? (
-						<List
-							dataSource={threads}
-							renderItem={(thread) => (
-								<List.Item>
-									<button
-										type="button"
-										className={`${styles.askThreadItem} ${selectedThreadId === thread.id ? styles.askThreadItemActive : ''}`}
-										onClick={() => {
-											closeEventStream();
-											updateActiveRunId('');
-											updateSelectedThreadId(thread.id);
-											void loadThread(thread.id, true);
-										}}
-									>
-										<div className={styles.askThreadItemTitle}>{thread.title}</div>
-										<div className={styles.askThreadItemMeta}>
-											<Tag color={formatStatus(thread.latest_run_status)}>{thread.latest_run_status || 'idle'}</Tag>
-											<span>{thread.latest_question || 'No runs yet'}</span>
-										</div>
-									</button>
-								</List.Item>
-							)}
-						/>
-					) : (
-						<Empty
-							description="Start your first Ask thread"
-							image={Empty.PRESENTED_IMAGE_SIMPLE}
-						>
-							<Button type="primary" onClick={() => void ensureThread()}>
-								Create Thread
-							</Button>
-						</Empty>
-					)}
-				</aside>
-
+			<div className={styles.askWorkspaceWide}>
 				<section className={styles.askConversationPane}>
 					<div className={styles.askConversationBody}>
-						{loadingThread ? (
+						{loadingThread || (loadingThreads && !selectedThreadId) ? (
 							<Skeleton active paragraph={{ rows: 10 }} />
 						) : messages.length ? (
 							<div className={styles.askMessageStack}>
-								{messages.map((message) => (
-									<div
-										key={message.id}
-										className={`${styles.askMessageCard} ${
-											message.role === 'user' ? styles.askMessageCardUser : styles.askMessageCardAssistant
-										}`}
+								{messages.map((message) => {
+									const messageRun = message.run_id ? runs.find((run) => run.id === String(message.run_id)) || null : null;
+									const messageArtifacts = messageRun ? artifactsByRun[messageRun.id] || [] : [];
+									return (
+										<div
+											key={message.id}
+											className={`${styles.askMessageCard} ${
+												message.role === 'user' ? styles.askMessageCardUser : styles.askMessageCardAssistant
+											}`}
 										>
 											<div className={styles.askMessageMeta}>
 												<span>{message.role === 'user' ? 'You' : 'Supe Ask'}</span>
-												{message.run_id ? (
+												{messageRun ? (
 													<Button
 														type="link"
 														size="small"
 														className={styles.askRunLink}
 														onClick={() => {
-															const nextRunId = String(message.run_id);
-															updateActiveRunId(nextRunId);
-															const nextRun = runs.find((run) => run.id === nextRunId);
-															if (nextRun && ['queued', 'running'].includes(nextRun.status)) {
-																connectRunEvents(nextRunId, selectedThreadIdRef.current);
+															updateActiveRunId(messageRun.id);
+															if (['queued', 'running'].includes(messageRun.status)) {
+																connectRunEvents(messageRun.id, selectedThreadIdRef.current);
 																return;
 															}
 															closeEventStream();
@@ -661,9 +819,29 @@ export function AskView() {
 													</Button>
 												) : null}
 											</div>
-										<div className={styles.askMessageContent}>{message.content}</div>
+											<div className={styles.askMessageContent}>{message.content}</div>
+											{messageRun ? <StructuredAssistantMessage run={messageRun} artifacts={messageArtifacts} onFollowUp={(question) => void handleSubmit(question)} /> : null}
+										</div>
+									);
+								})}
+
+								{showStreamingBubble ? (
+									<div className={`${styles.askMessageCard} ${styles.askMessageCardAssistant}`}>
+										<div className={styles.askMessageMeta}>
+											<span>Supe Ask</span>
+											<Tag color="processing">live</Tag>
+										</div>
+										<div className={styles.askStreamingBody}>
+											{streamedNarrative ? <div className={styles.askSummaryText}>{streamedNarrative}</div> : null}
+											{streamedCode ? (
+												<div className={styles.askStreamingCodeStatus}>
+													<CodeOutlined /> Streaming code preview into the inspector
+												</div>
+											) : null}
+											{selectedStdout.length ? <pre className={styles.askInlineLogBlock}>{selectedStdout.join('\n')}</pre> : null}
+										</div>
 									</div>
-								))}
+								) : null}
 							</div>
 						) : (
 							<div className={styles.askEmptyState}>
@@ -672,7 +850,7 @@ export function AskView() {
 								</div>
 								<h2 className={styles.askEmptyTitle}>What do you want to know?</h2>
 								<p className={styles.askEmptySubtitle}>
-									Start with one of the prototype leadership questions or type your own. The workspace will stream the run and keep the full context inside the thread.
+									Ask about revenue, coverage, outstanding, pipeline health, or follow-up actions. The answer will stream into a leadership-console report.
 								</p>
 								<div className={styles.askChipRow}>
 									{LEADERSHIP_PROMPT_SUGGESTIONS.slice(0, 3).map((item) => (
@@ -718,7 +896,7 @@ export function AskView() {
 						<div>
 							<div className={styles.askRailTitle}>Run detail</div>
 							<Typography.Text type="secondary">
-								{selectedRun ? selectedRun.question : 'Select a thread to inspect the latest run.'}
+								{selectedRun ? selectedRun.question : 'Select or create a thread to inspect the latest run.'}
 							</Typography.Text>
 						</div>
 						{runs.length ? (
@@ -735,10 +913,7 @@ export function AskView() {
 									closeEventStream();
 								}}
 								style={{ minWidth: 180 }}
-								options={runs.map((run, index) => ({
-									label: buildRunLabel(run, index),
-									value: run.id
-								}))}
+								options={runs.map((run, index) => ({ label: buildRunLabel(run, index), value: run.id }))}
 							/>
 						) : null}
 					</div>
@@ -751,11 +926,11 @@ export function AskView() {
 							</div>
 
 							<div className={styles.askEventList}>
-								{selectedEvents.map((event) => (
+								{selectedEvents.slice(-6).map((event) => (
 									<div key={event.id} className={styles.askEventItem}>
 										<div className={styles.askEventType}>{describeEvent(event.eventType)}</div>
 										<div className={styles.askEventMeta}>
-											{event.payload?.message || event.payload?.title || event.payload?.runner || ''}
+											{event.payload?.message || event.payload?.line || event.payload?.title || event.payload?.runner || ''}
 										</div>
 									</div>
 								))}
@@ -768,14 +943,20 @@ export function AskView() {
 									{
 										key: 'report',
 										label: 'Report',
-										children: selectedArtifacts.length ? (
-											<div className={styles.askArtifactsStack}>
-												{selectedArtifacts.map((artifact) => (
-													<AskArtifactRenderer key={artifact.id} artifact={artifact} />
-												))}
+										children: (
+											<div className={styles.askInspectorStack}>
+												<ReportSectionRail plan={selectedRun.artifact_plan} />
+												<LeadershipHighlights highlights={selectedRun.artifact_plan?.key_highlights || []} />
+												{selectedArtifacts.length ? (
+													<div className={styles.askArtifactsStack}>
+														{selectedArtifacts.map((artifact) => (
+															<AskArtifactRenderer key={artifact.id} artifact={artifact} />
+														))}
+													</div>
+												) : (
+													<Empty description="No report artifacts yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+												)}
 											</div>
-										) : (
-											<Empty description="No report artifacts yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
 										)
 									},
 									{
@@ -786,7 +967,10 @@ export function AskView() {
 											</span>
 										),
 										children: (
-											<pre className={styles.askCodeBlock}>{selectedRun.python_code || 'No code generated yet.'}</pre>
+											<div className={styles.askCodePanel}>
+												<pre className={styles.askCodeBlock}>{streamedCode || selectedRun.python_code || 'No code generated yet.'}</pre>
+												{selectedStdout.length ? <pre className={styles.askLogBlock}>{selectedStdout.join('\n')}</pre> : null}
+											</div>
 										)
 									}
 								]}
@@ -800,3 +984,4 @@ export function AskView() {
 		</div>
 	);
 }
+

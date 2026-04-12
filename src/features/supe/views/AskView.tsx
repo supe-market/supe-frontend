@@ -279,9 +279,9 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 	);
 }
 
-export function HypothesesView() {
+export function AskView() {
 	/** Main Ask screen used for thread management and run/result rendering. */
-	const [searchParams] = useSearchParams();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const initialQuery = searchParams.get('q') || '';
 	const [threads, setThreads] = useState<ISupeAskThread[]>([]);
 	const [selectedThreadId, setSelectedThreadId] = useState('');
@@ -298,6 +298,7 @@ export function HypothesesView() {
 	const [panelTab, setPanelTab] = useState<'report' | 'code'>('report');
 	const eventSourceRef = useRef<EventSource | null>(null);
 	const hydratedQueryRef = useRef(initialQuery);
+	const bootstrapRunRef = useRef('');
 	const selectedThreadIdRef = useRef('');
 	const activeRunIdRef = useRef('');
 	const loadThreadRequestRef = useRef(0);
@@ -487,7 +488,7 @@ export function HypothesesView() {
 		const nextQuestion = (presetQuestion ?? query).trim();
 		if (!nextQuestion) {
 			setComposerError('Enter a question to start an Ask run.');
-			return;
+			return false;
 		}
 
 		try {
@@ -502,8 +503,10 @@ export function HypothesesView() {
 			await loadThread(threadId, false);
 			await refreshThreadRail(threadId);
 			connectRunEvents(runId, threadId);
+			return true;
 		} catch (error: any) {
 			setComposerError(error?.response?.data?.detail || error?.response?.data?.message || 'Failed to create Ask run');
+			return false;
 		} finally {
 			setSubmitting(false);
 		}
@@ -529,6 +532,7 @@ export function HypothesesView() {
 	useEffect(() => {
 		if (!queryParam) {
 			hydratedQueryRef.current = '';
+			bootstrapRunRef.current = '';
 			return;
 		}
 		if (queryParam !== hydratedQueryRef.current) {
@@ -536,6 +540,34 @@ export function HypothesesView() {
 			setQuery(queryParam);
 		}
 	}, [queryParam]);
+
+	useEffect(() => {
+		if (!queryParam || loadingThreads || submitting) {
+			return;
+		}
+		if (bootstrapRunRef.current === queryParam) {
+			return;
+		}
+
+		bootstrapRunRef.current = queryParam;
+		setQuery(queryParam);
+		void (async () => {
+			const started = await handleSubmit(queryParam);
+			if (!started) {
+				bootstrapRunRef.current = '';
+				return;
+			}
+			try {
+				const nextParams = new URLSearchParams(searchParams);
+				nextParams.delete('q');
+				setSearchParams(nextParams, { replace: true });
+			} catch (_error) {
+				bootstrapRunRef.current = '';
+			}
+		})();
+		// searchParams is intentionally included so the effect clears the consumed
+		// bootstrap query from the URL after successful thread/run creation.
+	}, [loadingThreads, queryParam, searchParams, setSearchParams, submitting]);
 
 	return (
 		<div className={styles.askPage}>

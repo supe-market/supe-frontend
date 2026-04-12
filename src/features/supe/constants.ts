@@ -14,7 +14,6 @@ export const supeSkuRoute = makeSupeRoute('sku');
 export const supeDistributorRoute = makeSupeRoute('distributor');
 export const supeTrajectoryRoute = makeSupeRoute('trajectory');
 export const supeCompareRoute = makeSupeRoute('compare');
-export const supeHypothesesRoute = makeSupeRoute('hypotheses');
 export const supeTargetsRoute = makeSupeRoute('targets');
 export const supeImportsRoute = makeSupeRoute('imports');
 
@@ -32,7 +31,6 @@ export const supeAllRoutes = [
 	supeDistributorRoute,
 	supeTrajectoryRoute,
 	supeCompareRoute,
-	supeHypothesesRoute,
 	supeTargetsRoute,
 	supeImportsRoute
 ];
@@ -80,8 +78,8 @@ export const supeSidebarMenu = [
 		isNew: false
 	},
 	{
-		key: supeHypothesesRoute,
-		label: 'Hypotheses',
+		key: supeAskRoute,
+		label: 'Ask',
 		icon: 'support',
 		notificationCount: 1,
 		isNew: false
@@ -136,10 +134,6 @@ export const supeViewTitleMap: Record<string, { title: string; subtitle: string 
 	[supeAskRoute]: {
 		title: 'Ask',
 		subtitle: 'Threaded analytical workspace with reports and code'
-	},
-	[supeHypothesesRoute]: {
-		title: 'Hypotheses',
-		subtitle: 'Ask strategic questions and test assumptions'
 	},
 	[supeTargetsRoute]: {
 		title: 'Targets',

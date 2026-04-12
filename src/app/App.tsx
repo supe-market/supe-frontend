@@ -15,7 +15,6 @@ import {
   supeCompareRoute,
   supeDistributorRoute,
   supeExploreRoute,
-  supeHypothesesRoute,
   supeImportsRoute,
   supeRetailerRoute,
   supeSalesmanRoute,
@@ -50,9 +49,9 @@ const CompareView = lazy(() =>
   }))
 );
 
-const HypothesesView = lazy(() =>
-  import('../features/supe/views/HypothesesView').then((module) => ({
-    default: module.HypothesesView
+const AskView = lazy(() =>
+  import('../features/supe/views/AskView').then((module) => ({
+    default: module.AskView
   }))
 );
 
@@ -105,7 +104,7 @@ export function App() {
           <Route index element={withSuspense(<DashboardView />)} />
           <Route path={supeBriefingRoute.slice(1)} element={withSuspense(<DashboardView />)} />
           <Route path={supeExploreRoute.slice(1)} element={withSuspense(<ExploreView />)} />
-          <Route path={supeAskRoute.slice(1)} element={withSuspense(<HypothesesView />)} />
+          <Route path={supeAskRoute.slice(1)} element={withSuspense(<AskView />)} />
           <Route path={supeActRoute.slice(1)} element={withSuspense(<ActView />)} />
           <Route path={supeSchemesRoute.slice(1)} element={<Navigate to={supeActRoute} replace />} />
           <Route path={supeSummaryRoute.slice(1)} element={withSuspense(<DashboardView />)} />
@@ -131,7 +130,6 @@ export function App() {
           />
           <Route path={supeTrajectoryRoute.slice(1)} element={withSuspense(<TrajectoryView />)} />
           <Route path={supeCompareRoute.slice(1)} element={withSuspense(<CompareView />)} />
-          <Route path={supeHypothesesRoute.slice(1)} element={withSuspense(<HypothesesView />)} />
           <Route path={supeTargetsRoute.slice(1)} element={withSuspense(<TargetsView />)} />
           <Route path={supeImportsRoute.slice(1)} element={withSuspense(<ImportsView />)} />
           <Route path="*" element={<Navigate to={supeSummaryRoute} replace />} />

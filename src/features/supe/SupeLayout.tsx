@@ -38,7 +38,6 @@ import {
   supeCompareRoute,
   supeExploreEntityMeta,
   supeExploreRoute,
-  supeHypothesesRoute,
   supeImportsRoute,
   supeSchemesRoute,
   supeTargetsRoute,
@@ -126,7 +125,7 @@ export function SupeLayout() {
 
   const isBriefing = location.pathname === '/' || location.pathname === supeBriefingRoute || location.pathname === '/summary';
   const isExplore = location.pathname === supeExploreRoute;
-  const isAsk = location.pathname === supeAskRoute || location.pathname === supeHypothesesRoute;
+  const isAsk = location.pathname === supeAskRoute;
   const isAct = location.pathname === supeActRoute || location.pathname === supeSchemesRoute;
   const currentEntity = searchParams.get('entity') || 'salesman';
   const sidebarWidth = collapsed ? COLLAPSED_SIDEBAR_WIDTH : DESKTOP_SIDEBAR_WIDTH;

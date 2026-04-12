@@ -56,6 +56,12 @@ function takeSuggestedQuestions(plan?: ISupeAskArtifactPlan | null) {
 	return Array.isArray(plan?.suggested_next_questions) ? plan!.suggested_next_questions.slice(0, 3) : [];
 }
 
+function takeWorkingAssumptions(plan?: ISupeAskArtifactPlan | null) {
+	return Array.isArray(plan?.working_assumptions)
+		? plan!.working_assumptions.filter((item): item is string => Boolean(String(item || '').trim())).slice(0, 4)
+		: [];
+}
+
 function toneClassName(tone: string) {
 	const n = tone.toLowerCase();
 	if (n.includes('easy') || n.includes('positive') || n.includes('good')) return styles.askHighlightTonePositive;
@@ -257,6 +263,21 @@ function LeadershipHighlights({ highlights }: { highlights: ISupeAskKeyHighlight
 	);
 }
 
+function WorkingAssumptions({ items }: { items: string[] }) {
+	if (!items.length) return null;
+	return (
+		<div className={styles.askAssumptionsCard}>
+			<div className={styles.askSectionHeader}>
+				<span>Working assumptions</span>
+				<Typography.Text type="secondary">Defaults used to answer without blocking on clarification</Typography.Text>
+			</div>
+			<ul className={styles.askAssumptionsList}>
+				{items.map((item, index) => <li key={`${item}_${index}`} className={styles.askAssumptionsItem}>{item}</li>)}
+			</ul>
+		</div>
+	);
+}
+
 /* ─────────────────── Structured assistant card ───────────────── */
 
 function StructuredAssistantMessage({
@@ -272,6 +293,7 @@ function StructuredAssistantMessage({
 }) {
 	const isLive = ['queued', 'running'].includes(run.status);
 	const followUps = takeSuggestedQuestions(run.artifact_plan);
+	const workingAssumptions = takeWorkingAssumptions(run.artifact_plan);
 	const shareText = buildShareText(run);
 
 	return (
@@ -284,6 +306,7 @@ function StructuredAssistantMessage({
 
 			{/* Title + summary — appears once codegen completes */}
 			{run.title ? <h3 className={styles.askReportTitle}>{run.title}</h3> : null}
+			<WorkingAssumptions items={workingAssumptions} />
 			{run.assistant_summary ? <div className={styles.askSummaryText}>{run.assistant_summary}</div> : null}
 
 			{/* Inline artifacts — tables, metrics, charts */}
@@ -388,6 +411,8 @@ export function AskView() {
 	const activeRunIdRef = useRef('');
 	const loadThreadRequestRef = useRef(0);
 	const conversationEndRef = useRef<HTMLDivElement | null>(null);
+	const conversationBodyRef = useRef<HTMLDivElement | null>(null);
+	const shouldAutoScrollRef = useRef(false);
 
 	/* ── Derived ───────────────────────────────────────────────── */
 	const selectedRun = useMemo(() => runs.find((r) => r.id === activeRunId) || runs[runs.length - 1] || null, [activeRunId, runs]);
@@ -408,7 +433,28 @@ export function AskView() {
 	const closeEventStream = () => { if (eventSourceRef.current) { eventSourceRef.current.close(); eventSourceRef.current = null; } };
 	const applyRunPatch = (runId: string, patch: Partial<ISupeAskRun>) => setRuns((cur) => cur.map((r) => (r.id === runId ? { ...r, ...patch } : r)));
 
-	const scrollToBottom = () => { conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
+	const isNearConversationBottom = () => {
+		const node = conversationBodyRef.current;
+		if (!node) return true;
+		return node.scrollHeight - node.scrollTop - node.clientHeight < 120;
+	};
+	const syncAutoScrollPreference = () => { shouldAutoScrollRef.current = isNearConversationBottom(); };
+	const scrollToBottom = (force = false, behavior: ScrollBehavior = 'smooth') => {
+		const node = conversationBodyRef.current;
+		if (!node) {
+			conversationEndRef.current?.scrollIntoView({ behavior });
+			return;
+		}
+		if (!force && !shouldAutoScrollRef.current) return;
+		node.scrollTo({ top: node.scrollHeight, behavior });
+		shouldAutoScrollRef.current = true;
+	};
+	const scrollToTop = () => {
+		const node = conversationBodyRef.current;
+		if (!node) return;
+		node.scrollTo({ top: 0, behavior: 'auto' });
+		shouldAutoScrollRef.current = false;
+	};
 
 	const hydrateRunStreams = (nextEvents: Record<string, ISupeAskEvent[]>, nextRuns: ISupeAskRun[]) => {
 		const np: Record<string, string> = {};
@@ -590,7 +636,7 @@ export function AskView() {
 			await loadThread(tid, false);
 			await refreshThreadRail(tid);
 			connectRunEvents(rid, tid);
-			scrollToBottom();
+			scrollToBottom(true);
 			return true;
 		} catch (e: any) {
 			setComposerError(e?.response?.data?.detail || e?.response?.data?.message || 'Failed to create run');
@@ -607,6 +653,7 @@ export function AskView() {
 	/* ── Effects ───────────────────────────────────────────────── */
 	useEffect(() => { void loadThreads(threadParam || undefined); return () => closeEventStream(); }, [threadParam]);
 	useEffect(() => { if (!queryParam) { hydratedQueryRef.current = ''; bootstrapRunRef.current = ''; return; } if (queryParam !== hydratedQueryRef.current) { hydratedQueryRef.current = queryParam; setQuery(queryParam); } }, [queryParam]);
+	useEffect(() => { scrollToTop(); }, [selectedThreadId]);
 	useEffect(() => {
 		if (!queryParam || loadingThreads || submitting) return;
 		if (bootstrapRunRef.current === queryParam) return;
@@ -638,7 +685,7 @@ export function AskView() {
 			<div className={`${styles.askWorkspaceCanvas} ${codeCanvasOpen ? styles.askWorkspaceCanvasWithCode : ''}`}>
 				{/* Conversation pane */}
 				<section className={styles.askConversationPane}>
-					<div className={styles.askConversationBody}>
+					<div ref={conversationBodyRef} className={styles.askConversationBody} onScroll={syncAutoScrollPreference}>
 						{loadingThread || (loadingThreads && !selectedThreadId) ? (
 							<Skeleton active paragraph={{ rows: 10 }} />
 						) : messages.length ? (

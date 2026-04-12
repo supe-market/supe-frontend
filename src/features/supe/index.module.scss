@@ -511,6 +511,27 @@
 	padding: 16px 18px;
 }
 
+.askAssumptionsCard {
+	border: 1px solid #dbe4f0;
+	border-radius: 18px;
+	background: linear-gradient(180deg, #f8fbff 0%, #f3f7fd 100%);
+	padding: 16px 18px;
+}
+
+.askAssumptionsList {
+	margin: 0;
+	padding-left: 18px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.askAssumptionsItem {
+	color: #334155;
+	font-size: 13px;
+	line-height: 1.6;
+}
+
 .askHighlightsList {
 	display: flex;
 	flex-direction: column;

@@ -120,6 +120,7 @@ export interface ISupeAskArtifactPlan {
 	}>;
 	report_sections?: ISupeAskReportSection[];
 	key_highlights?: ISupeAskKeyHighlight[];
+	working_assumptions?: string[];
 	suggested_next_questions?: string[];
 }
 

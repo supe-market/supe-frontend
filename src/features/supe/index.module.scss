@@ -8,8 +8,9 @@
 .askPage {
 	min-height: calc(100dvh - 48px);
 	background: #f8fafc;
-	margin: -8px -12px 0;
-	padding: 10px 14px 16px;
+	margin: 0;
+	padding: 16px 18px 20px;
+	overflow-x: clip;
 }
 
 .askHeader {
@@ -659,7 +660,7 @@
 
 @media screen and (max-width: 960px) {
 	.askPage {
-		margin: -8px -8px 0;
+		margin: 0;
 		padding: 12px;
 	}
 

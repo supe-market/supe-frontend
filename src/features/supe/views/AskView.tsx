@@ -1,11 +1,21 @@
 /**
- * Ask workspace view.
+ * Ask workspace view — redesigned.
  *
- * Leadership-console style Ask surface with streamed narrative/code state,
- * inline structured report blocks, and a separate inspector for report/code.
+ * Single conversation card with inline structured reports, a thinking
+ * animation during processing, and a ChatGPT Canvas–style sliding code
+ * pane on the right.
  */
-import { Button, Empty, Skeleton, Space, Table, Tag, Tabs, Typography } from 'antd';
-import { CodeOutlined, CopyOutlined, MessageOutlined, PlusOutlined, ShareAltOutlined, StopOutlined } from '@ant-design/icons';
+import { Button, Empty, Skeleton, Space, Table, Tag, Typography } from 'antd';
+import {
+	CloseOutlined,
+	CodeOutlined,
+	CopyOutlined,
+	LoadingOutlined,
+	MessageOutlined,
+	PlusOutlined,
+	ShareAltOutlined,
+	StopOutlined
+} from '@ant-design/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -25,142 +35,16 @@ import styles from '../index.module.scss';
 const ASK_CHART_COLORS = ['#1d4ed8', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#0369a1'];
 const ASK_THREAD_EVENT = 'supe-ask-threads-updated';
 
+/* ─────────────────────── Utility helpers ─────────────────────── */
+
 function formatStatus(status?: string | null) {
 	switch (status) {
-		case 'completed':
-			return 'success';
-		case 'failed':
-			return 'error';
-		case 'cancelled':
-			return 'default';
-		case 'running':
-			return 'processing';
-		default:
-			return 'warning';
+		case 'completed': return 'success';
+		case 'failed': return 'error';
+		case 'cancelled': return 'default';
+		case 'running': return 'processing';
+		default: return 'warning';
 	}
-}
-
-function describeEvent(eventType: string) {
-	switch (eventType) {
-		case 'run.created':
-			return 'Run created';
-		case 'run.planning.delta':
-			return 'Planning';
-		case 'run.planning.completed':
-			return 'Planning complete';
-		case 'run.retrieval.started':
-			return 'Retrieval started';
-		case 'run.retrieval.iteration.started':
-			return 'Retrieval iteration started';
-		case 'run.retrieval.action':
-			return 'Retrieval action';
-		case 'run.retrieval.profile.completed':
-			return 'Profiling completed';
-		case 'run.retrieval.iteration.completed':
-			return 'Retrieval iteration completed';
-		case 'run.retrieval.completed':
-			return 'Retrieval completed';
-		case 'run.codegen.started':
-			return 'Code generation started';
-		case 'run.codegen.delta':
-			return 'Codegen stream';
-		case 'run.codegen.completed':
-			return 'Code generation completed';
-		case 'run.execution.started':
-			return 'Execution started';
-		case 'run.execution.progress':
-			return 'Execution update';
-		case 'run.execution.stdout':
-			return 'Execution log';
-		case 'run.completed':
-			return 'Completed';
-		case 'run.failed':
-			return 'Failed';
-		case 'run.cancelled':
-			return 'Cancelled';
-		default:
-			return eventType;
-	}
-}
-
-function buildRunLabel(run: ISupeAskRun, index: number) {
-	return run.title || `Run ${index + 1}`;
-}
-
-function AskChart({ artifact }: { artifact: ISupeAskArtifact }) {
-	const payload = artifact.payload || {};
-	const traces = Array.isArray(payload?.data) ? payload.data : [];
-	const chartRowOrder: string[] = [];
-	const chartRowMap = new Map<string, Record<string, number | string | null>>();
-	const usedSeriesKeys = new Set<string>();
-	const chartSeries = traces.reduce<Array<{ color: string; dataKey: string; name: string; type: 'bar' | 'line' }>>(
-		(accumulator, trace, traceIndex) => {
-			const xValues = Array.isArray(trace?.x) ? trace.x : [];
-			const yValues = Array.isArray(trace?.y) ? trace.y : [];
-			const pointsLength = Math.max(xValues.length, yValues.length);
-			if (!pointsLength) {
-				return accumulator;
-			}
-
-			const baseSeriesName = String(trace?.name || `Series ${traceIndex + 1}`);
-			let dataKey = baseSeriesName;
-			let duplicateIndex = 2;
-			while (usedSeriesKeys.has(dataKey)) {
-				dataKey = `${baseSeriesName} ${duplicateIndex}`;
-				duplicateIndex += 1;
-			}
-			usedSeriesKeys.add(dataKey);
-
-			for (let pointIndex = 0; pointIndex < pointsLength; pointIndex += 1) {
-				const rowLabel = String(xValues[pointIndex] ?? pointIndex + 1);
-				if (!chartRowMap.has(rowLabel)) {
-					chartRowMap.set(rowLabel, { name: rowLabel });
-					chartRowOrder.push(rowLabel);
-				}
-				const numericValue = Number(yValues[pointIndex] ?? null);
-				chartRowMap.get(rowLabel)![dataKey] = Number.isFinite(numericValue) ? numericValue : null;
-			}
-
-			accumulator.push({
-				color: ASK_CHART_COLORS[traceIndex % ASK_CHART_COLORS.length],
-				dataKey,
-				name: baseSeriesName,
-				type: trace?.type === 'bar' ? 'bar' : 'line'
-			});
-			return accumulator;
-		},
-		[]
-	);
-	const chartRows = chartRowOrder.map((label) => chartRowMap.get(label) || { name: label });
-
-	if (!chartRows.length || !chartSeries.length) {
-		return (
-			<div className={styles.askArtifactFallback}>
-				<Typography.Text type="secondary">This chart payload could not be rendered inline.</Typography.Text>
-			</div>
-		);
-	}
-
-	return (
-		<div className={styles.askChartShell}>
-			<ResponsiveContainer width="100%" height={260}>
-				<ComposedChart data={chartRows}>
-					<CartesianGrid strokeDasharray="3 3" />
-					<XAxis dataKey="name" tickLine={false} axisLine={false} />
-					<YAxis tickLine={false} axisLine={false} />
-					<Tooltip />
-					<Legend />
-					{chartSeries.map((series) =>
-						series.type === 'bar' ? (
-							<Bar key={series.dataKey} dataKey={series.dataKey} name={series.name} fill={series.color} radius={[6, 6, 0, 0]} />
-						) : (
-							<Line key={series.dataKey} type="monotone" dataKey={series.dataKey} name={series.name} stroke={series.color} strokeWidth={2} dot={false} />
-						)
-					)}
-				</ComposedChart>
-			</ResponsiveContainer>
-		</div>
-	);
 }
 
 function appendChunk(current: string, next: string) {
@@ -173,70 +57,90 @@ function takeSuggestedQuestions(plan?: ISupeAskArtifactPlan | null) {
 }
 
 function toneClassName(tone: string) {
-	const normalized = tone.toLowerCase();
-	if (normalized.includes('easy') || normalized.includes('positive') || normalized.includes('good')) {
-		return styles.askHighlightTonePositive;
-	}
-	if (normalized.includes('medium') || normalized.includes('warning')) {
-		return styles.askHighlightToneWarning;
-	}
+	const n = tone.toLowerCase();
+	if (n.includes('easy') || n.includes('positive') || n.includes('good')) return styles.askHighlightTonePositive;
+	if (n.includes('medium') || n.includes('warning')) return styles.askHighlightToneWarning;
 	return styles.askHighlightToneCritical;
 }
 
 function buildShareText(run: ISupeAskRun) {
 	const lines = [run.title || run.question, run.assistant_summary || ''];
 	const highlights = Array.isArray(run.artifact_plan?.key_highlights) ? run.artifact_plan?.key_highlights : [];
-	for (const highlight of highlights || []) {
-		lines.push(`- ${highlight.title}: ${highlight.value}`);
-	}
+	for (const h of highlights || []) lines.push(`- ${h.title}: ${h.value}`);
 	return lines.filter(Boolean).join('\n');
 }
 
-function LeadershipHighlights({ highlights }: { highlights: ISupeAskKeyHighlight[] }) {
-	if (!highlights.length) {
-		return null;
-	}
+/* ─────────────────────── Thinking indicator ──────────────────── */
+
+const THINKING_MESSAGES: Record<string, string> = {
+	retrieval: 'Analyzing your question...',
+	codegen: 'Generating analysis code...',
+	execution: 'Running analysis...',
+};
+
+function ThinkingIndicator({ stage, message }: { stage: string; message?: string }) {
+	const label = message || THINKING_MESSAGES[stage] || 'Thinking...';
 	return (
-		<div className={styles.askHighlightsCard}>
-			<div className={styles.askSectionHeader}>
-				<span>Key Highlights</span>
-				<Typography.Text type="secondary">What needs attention</Typography.Text>
+		<div className={styles.askThinking}>
+			<div className={styles.askThinkingDots}>
+				<span /><span /><span />
 			</div>
-			<div className={styles.askHighlightsList}>
-				{highlights.map((highlight, index) => (
-					<div key={`${highlight.title}_${index}`} className={styles.askHighlightRow}>
-						<div className={styles.askHighlightIndex}>{index + 1}</div>
-						<div className={styles.askHighlightBody}>
-							<div className={styles.askHighlightHeading}>
-								<span>{highlight.title}</span>
-								<span className={`${styles.askHighlightTone} ${toneClassName(highlight.tone)}`}>{highlight.tone}</span>
-							</div>
-							<div className={styles.askHighlightDetail}>{highlight.detail}</div>
-						</div>
-						<div className={styles.askHighlightValue}>{highlight.value}</div>
-					</div>
-				))}
-			</div>
+			<span className={styles.askThinkingLabel}>{label}</span>
 		</div>
 	);
 }
 
-function ReportSectionRail({ plan }: { plan?: ISupeAskArtifactPlan | null }) {
-	const sections = Array.isArray(plan?.report_sections) ? plan!.report_sections : [];
-	if (!sections.length) {
-		return null;
+/* ─────────────────────── Chart renderer ──────────────────────── */
+
+function AskChart({ artifact }: { artifact: ISupeAskArtifact }) {
+	const payload = artifact.payload || {};
+	const traces = Array.isArray(payload?.data) ? payload.data : [];
+	const chartRowOrder: string[] = [];
+	const chartRowMap = new Map<string, Record<string, number | string | null>>();
+	const usedSeriesKeys = new Set<string>();
+	const chartSeries = traces.reduce<Array<{ color: string; dataKey: string; name: string; type: 'bar' | 'line' }>>(
+		(acc, trace, i) => {
+			const xValues = Array.isArray(trace?.x) ? trace.x : [];
+			const yValues = Array.isArray(trace?.y) ? trace.y : [];
+			const len = Math.max(xValues.length, yValues.length);
+			if (!len) return acc;
+			const baseName = String(trace?.name || `Series ${i + 1}`);
+			let dataKey = baseName;
+			let dup = 2;
+			while (usedSeriesKeys.has(dataKey)) { dataKey = `${baseName} ${dup}`; dup++; }
+			usedSeriesKeys.add(dataKey);
+			for (let j = 0; j < len; j++) {
+				const label = String(xValues[j] ?? j + 1);
+				if (!chartRowMap.has(label)) { chartRowMap.set(label, { name: label }); chartRowOrder.push(label); }
+				const v = Number(yValues[j] ?? null);
+				chartRowMap.get(label)![dataKey] = Number.isFinite(v) ? v : null;
+			}
+			acc.push({ color: ASK_CHART_COLORS[i % ASK_CHART_COLORS.length], dataKey, name: baseName, type: trace?.type === 'bar' ? 'bar' : 'line' });
+			return acc;
+		}, []);
+	const chartRows = chartRowOrder.map((l) => chartRowMap.get(l) || { name: l });
+	if (!chartRows.length || !chartSeries.length) {
+		return <div className={styles.askArtifactFallback}><Typography.Text type="secondary">Chart could not be rendered.</Typography.Text></div>;
 	}
 	return (
-		<div className={styles.askSectionRail}>
-			{sections.map((section) => (
-				<div key={`${section.title}_${section.subtitle}`} className={styles.askSectionRailItem}>
-					<div className={styles.askSectionRailTitle}>{section.title}</div>
-					<div className={styles.askSectionRailSubtitle}>{section.subtitle}</div>
-				</div>
-			))}
+		<div className={styles.askChartShell}>
+			<ResponsiveContainer width="100%" height={260}>
+				<ComposedChart data={chartRows}>
+					<CartesianGrid strokeDasharray="3 3" />
+					<XAxis dataKey="name" tickLine={false} axisLine={false} />
+					<YAxis tickLine={false} axisLine={false} />
+					<Tooltip /><Legend />
+					{chartSeries.map((s) => s.type === 'bar'
+						? <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name} fill={s.color} radius={[6, 6, 0, 0]} />
+						: <Line key={s.dataKey} type="monotone" dataKey={s.dataKey} name={s.name} stroke={s.color} strokeWidth={2} dot={false} />
+					)}
+				</ComposedChart>
+			</ResponsiveContainer>
 		</div>
 	);
 }
+
+/* ─────────────────────── Artifact renderer ───────────────────── */
 
 function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 	if (artifact.artifact_type === 'markdown') {
@@ -247,7 +151,6 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 			</div>
 		);
 	}
-
 	if (artifact.artifact_type === 'metric') {
 		return (
 			<div className={styles.askMetricArtifact}>
@@ -260,7 +163,6 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 			</div>
 		);
 	}
-
 	if (artifact.artifact_type === 'table') {
 		const columns = Array.isArray(artifact.payload?.columns) ? artifact.payload.columns : [];
 		const rows = Array.isArray(artifact.payload?.rows) ? artifact.payload.rows : [];
@@ -270,23 +172,12 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 					<span>{artifact.title}</span>
 					<Typography.Text type="secondary">Rows {artifact.payload?.rowCount ?? rows.length}</Typography.Text>
 				</div>
-				<Table
-					size="small"
-					pagination={false}
-					rowKey={(_, index) => `${artifact.id}_${index}`}
-					scroll={{ x: true }}
+				<Table size="small" pagination={false} rowKey={(_, i) => `${artifact.id}_${i}`} scroll={{ x: true }}
 					dataSource={rows}
-					columns={columns.map((column: string) => ({
-						title: column,
-						dataIndex: column,
-						key: column,
-						render: (value: any) => (value == null ? '-' : String(value))
-					}))}
-				/>
+					columns={columns.map((c: string) => ({ title: c, dataIndex: c, key: c, render: (v: any) => (v == null ? '-' : String(v)) }))} />
 			</div>
 		);
 	}
-
 	if (artifact.artifact_type === 'plotly') {
 		return (
 			<div className={styles.askArtifactCard}>
@@ -295,7 +186,6 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 			</div>
 		);
 	}
-
 	if (artifact.artifact_type === 'log') {
 		return (
 			<div className={styles.askArtifactCard}>
@@ -304,90 +194,130 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 			</div>
 		);
 	}
+	return <div className={styles.askArtifactFallback}><Typography.Text type="secondary">Unsupported: {artifact.artifact_type}</Typography.Text></div>;
+}
 
+/* ─────────────────────── Highlights ──────────────────────────── */
+
+function LeadershipHighlights({ highlights }: { highlights: ISupeAskKeyHighlight[] }) {
+	if (!highlights.length) return null;
 	return (
-		<div className={styles.askArtifactFallback}>
-			<Typography.Text type="secondary">Unsupported artifact type: {artifact.artifact_type}</Typography.Text>
+		<div className={styles.askHighlightsCard}>
+			<div className={styles.askSectionHeader}><span>Key Highlights</span><Typography.Text type="secondary">What needs attention</Typography.Text></div>
+			<div className={styles.askHighlightsList}>
+				{highlights.map((h, i) => (
+					<div key={`${h.title}_${i}`} className={styles.askHighlightRow}>
+						<div className={styles.askHighlightIndex}>{i + 1}</div>
+						<div className={styles.askHighlightBody}>
+							<div className={styles.askHighlightHeading}><span>{h.title}</span><span className={`${styles.askHighlightTone} ${toneClassName(h.tone)}`}>{h.tone}</span></div>
+							<div className={styles.askHighlightDetail}>{h.detail}</div>
+						</div>
+						<div className={styles.askHighlightValue}>{h.value}</div>
+					</div>
+				))}
+			</div>
 		</div>
 	);
 }
 
+/* ─────────────────── Structured assistant card ───────────────── */
+
 function StructuredAssistantMessage({
-	run,
-	artifacts,
-	onFollowUp
+	run, artifacts, thinkingStage, thinkingMessage, streamedNarrative, onFollowUp, onOpenCode
 }: {
 	run: ISupeAskRun;
 	artifacts: ISupeAskArtifact[];
-	onFollowUp: (question: string) => void;
+	thinkingStage: string;
+	thinkingMessage: string;
+	streamedNarrative: string;
+	onFollowUp: (q: string) => void;
+	onOpenCode: () => void;
 }) {
+	const isLive = ['queued', 'running'].includes(run.status);
 	const followUps = takeSuggestedQuestions(run.artifact_plan);
 	const shareText = buildShareText(run);
+
 	return (
 		<div className={styles.askAssistantResponse}>
-			<div className={styles.askInterpretationRow}>
-				<span className={styles.askEngineBadge}>Built-in</span>
-				{run.retrieval_context?.finalContext?.questionGrounding?.intent ? (
-					<span className={styles.askInterpretationText}>
-						Understood as: {String(run.retrieval_context.finalContext.questionGrounding.intent).replace(/_/g, ' ')}
-					</span>
-				) : null}
-			</div>
+			{/* Thinking animation — shown while pipeline is still working */}
+			{isLive && thinkingStage ? <ThinkingIndicator stage={thinkingStage} message={thinkingMessage} /> : null}
 
+			{/* Streamed narrative — appears as retrieval/planning progresses */}
+			{streamedNarrative ? <div className={styles.askStreamedNarrative}>{streamedNarrative}</div> : null}
+
+			{/* Title + summary — appears once codegen completes */}
+			{run.title ? <h3 className={styles.askReportTitle}>{run.title}</h3> : null}
 			{run.assistant_summary ? <div className={styles.askSummaryText}>{run.assistant_summary}</div> : null}
-			<ReportSectionRail plan={run.artifact_plan} />
 
+			{/* Inline artifacts — tables, metrics, charts */}
 			{artifacts.length ? (
 				<div className={styles.askInlineArtifactStack}>
-					{artifacts.map((artifact) => (
-						<AskArtifactRenderer key={artifact.id} artifact={artifact} />
-					))}
+					{artifacts.map((a) => <AskArtifactRenderer key={a.id} artifact={a} />)}
 				</div>
 			) : null}
 
+			{/* Key highlights */}
 			<LeadershipHighlights highlights={run.artifact_plan?.key_highlights || []} />
 
-			<div className={styles.askInlineActions}>
-				<Button
-					size="small"
-					icon={<ShareAltOutlined />}
-					onClick={async () => {
-						if (navigator.share) {
-							try {
-								await navigator.share({ title: run.title || 'Supe Ask', text: shareText });
-								return;
-							} catch {
-								// fall through to clipboard
-							}
-						}
-						await navigator.clipboard.writeText(shareText);
-					}}
-				>
-					Share
-				</Button>
-				<Button
-					size="small"
-					icon={<CopyOutlined />}
-					onClick={async () => {
-						await navigator.clipboard.writeText(shareText);
-					}}
-				>
-					Copy
-				</Button>
-			</div>
+			{/* Error */}
+			{run.status === 'failed' && run.error_message ? (
+				<div className={styles.askRunError}>{run.error_message}</div>
+			) : null}
 
+			{/* Action bar */}
+			{!isLive ? (
+				<div className={styles.askInlineActions}>
+					{run.python_code ? (
+						<Button size="small" icon={<CodeOutlined />} onClick={onOpenCode}>View code</Button>
+					) : null}
+					<Button size="small" icon={<ShareAltOutlined />} onClick={async () => {
+						if (navigator.share) { try { await navigator.share({ title: run.title || 'Supe Ask', text: shareText }); return; } catch { /* fall through */ } }
+						await navigator.clipboard.writeText(shareText);
+					}}>Share</Button>
+					<Button size="small" icon={<CopyOutlined />} onClick={() => navigator.clipboard.writeText(shareText)}>Copy</Button>
+				</div>
+			) : null}
+
+			{/* Follow-up chips */}
 			{followUps.length ? (
 				<div className={styles.askFollowUpRow}>
-					{followUps.map((question) => (
-						<button key={question} type="button" className={styles.askFollowUpChip} onClick={() => onFollowUp(question)}>
-							{question}
-						</button>
-					))}
+					{followUps.map((q) => <button key={q} type="button" className={styles.askFollowUpChip} onClick={() => onFollowUp(q)}>{q}</button>)}
 				</div>
 			) : null}
 		</div>
 	);
 }
+
+/* ─────────────── Canvas-style code pane ─────────────────────── */
+
+function CodeCanvas({
+	code, stdout, open, onClose
+}: {
+	code: string;
+	stdout: string[];
+	open: boolean;
+	onClose: () => void;
+}) {
+	return (
+		<aside className={`${styles.askCodeCanvas} ${open ? styles.askCodeCanvasOpen : ''}`}>
+			<div className={styles.askCodeCanvasHeader}>
+				<span><CodeOutlined /> Generated Code</span>
+				<Button type="text" size="small" icon={<CloseOutlined />} onClick={onClose} />
+			</div>
+			<div className={styles.askCodeCanvasBody}>
+				<pre className={styles.askCodeBlock}>{code || 'No code generated yet.'}</pre>
+				{stdout.length ? (
+					<>
+						<div className={styles.askCodeCanvasDivider}>Execution Output</div>
+						<pre className={styles.askLogBlock}>{stdout.join('\n')}</pre>
+					</>
+				) : null}
+			</div>
+		</aside>
+	);
+}
+
+/* ════════════════════════ Main View ═══════════════════════════ */
 
 export function AskView() {
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -395,6 +325,7 @@ export function AskView() {
 	const threadParam = searchParams.get('thread') || '';
 	const queryParam = searchParams.get('q') || '';
 
+	/* ── State ─────────────────────────────────────────────────── */
 	const [threads, setThreads] = useState<ISupeAskThread[]>([]);
 	const [selectedThreadId, setSelectedThreadId] = useState('');
 	const [messages, setMessages] = useState<ISupeAskMessage[]>([]);
@@ -404,13 +335,14 @@ export function AskView() {
 	const [streamedPlanningByRun, setStreamedPlanningByRun] = useState<Record<string, string>>({});
 	const [streamedCodeByRun, setStreamedCodeByRun] = useState<Record<string, string>>({});
 	const [stdoutByRun, setStdoutByRun] = useState<Record<string, string[]>>({});
+	const [thinkingByRun, setThinkingByRun] = useState<Record<string, { stage: string; message: string }>>({});
 	const [activeRunId, setActiveRunId] = useState('');
 	const [query, setQuery] = useState(initialQuery);
 	const [loadingThreads, setLoadingThreads] = useState(true);
 	const [loadingThread, setLoadingThread] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const [composerError, setComposerError] = useState('');
-	const [panelTab, setPanelTab] = useState<'report' | 'code'>('report');
+	const [codeCanvasOpen, setCodeCanvasOpen] = useState(false);
 
 	const eventSourceRef = useRef<EventSource | null>(null);
 	const hydratedQueryRef = useRef(initialQuery);
@@ -418,95 +350,58 @@ export function AskView() {
 	const selectedThreadIdRef = useRef('');
 	const activeRunIdRef = useRef('');
 	const loadThreadRequestRef = useRef(0);
+	const conversationEndRef = useRef<HTMLDivElement | null>(null);
 
-	const syncThreadParam = (nextThreadId: string) => {
-		const nextParams = new URLSearchParams(searchParams);
-		if (nextThreadId) {
-			nextParams.set('thread', nextThreadId);
-		} else {
-			nextParams.delete('thread');
-		}
-		if (nextParams.toString() !== searchParams.toString()) {
-			setSearchParams(nextParams, { replace: true });
-		}
-	};
-
-	const updateSelectedThreadId = (nextThreadId: string, syncUrl = true) => {
-		selectedThreadIdRef.current = nextThreadId;
-		setSelectedThreadId(nextThreadId);
-		if (syncUrl) {
-			syncThreadParam(nextThreadId);
-		}
-	};
-
-	const updateActiveRunId = (nextRunId: string) => {
-		activeRunIdRef.current = nextRunId;
-		setActiveRunId(nextRunId);
-	};
-
-	const selectedRun = useMemo(() => runs.find((run) => run.id === activeRunId) || runs[runs.length - 1] || null, [activeRunId, runs]);
+	/* ── Derived ───────────────────────────────────────────────── */
+	const selectedRun = useMemo(() => runs.find((r) => r.id === activeRunId) || runs[runs.length - 1] || null, [activeRunId, runs]);
 	const selectedArtifacts = selectedRun ? artifactsByRun[selectedRun.id] || [] : [];
-	const selectedEvents = selectedRun ? eventsByRun[selectedRun.id] || [] : [];
 	const selectedStdout = selectedRun ? stdoutByRun[selectedRun.id] || [] : [];
 	const streamedNarrative = selectedRun ? streamedPlanningByRun[selectedRun.id] || '' : '';
 	const streamedCode = selectedRun ? streamedCodeByRun[selectedRun.id] || selectedRun.python_code || '' : '';
+	const thinking = selectedRun ? thinkingByRun[selectedRun.id] || null : null;
 
-	const closeEventStream = () => {
-		if (eventSourceRef.current) {
-			eventSourceRef.current.close();
-			eventSourceRef.current = null;
-		}
+	/* ── Helpers ───────────────────────────────────────────────── */
+	const syncThreadParam = (id: string) => {
+		const p = new URLSearchParams(searchParams);
+		if (id) p.set('thread', id); else p.delete('thread');
+		if (p.toString() !== searchParams.toString()) setSearchParams(p, { replace: true });
 	};
+	const updateSelectedThreadId = (id: string, sync = true) => { selectedThreadIdRef.current = id; setSelectedThreadId(id); if (sync) syncThreadParam(id); };
+	const updateActiveRunId = (id: string) => { activeRunIdRef.current = id; setActiveRunId(id); };
+	const closeEventStream = () => { if (eventSourceRef.current) { eventSourceRef.current.close(); eventSourceRef.current = null; } };
+	const applyRunPatch = (runId: string, patch: Partial<ISupeAskRun>) => setRuns((cur) => cur.map((r) => (r.id === runId ? { ...r, ...patch } : r)));
 
-	const applyRunPatch = (runId: string, patch: Partial<ISupeAskRun>) => {
-		setRuns((current) => current.map((run) => (run.id === runId ? { ...run, ...patch } : run)));
-	};
+	const scrollToBottom = () => { conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
 
-	const hydrateRunStreams = (nextEventsByRun: Record<string, ISupeAskEvent[]>, nextRuns: ISupeAskRun[]) => {
-		const nextPlanning: Record<string, string> = {};
-		const nextCode: Record<string, string> = {};
-		const nextStdout: Record<string, string[]> = {};
+	const hydrateRunStreams = (nextEvents: Record<string, ISupeAskEvent[]>, nextRuns: ISupeAskRun[]) => {
+		const np: Record<string, string> = {};
+		const nc: Record<string, string> = {};
+		const ns: Record<string, string[]> = {};
 		for (const run of nextRuns) {
-			const runEvents = nextEventsByRun[run.id] || [];
-			let planningBuffer = '';
-			let codeBuffer = run.python_code || '';
-			const stdoutLines: string[] = [];
-			for (const event of runEvents) {
-				if (event.eventType === 'run.planning.delta') {
-					planningBuffer = appendChunk(planningBuffer, String(event.payload?.delta || ''));
-				}
-				if (event.eventType === 'run.codegen.delta') {
-					codeBuffer = appendChunk(codeBuffer, String(event.payload?.delta || ''));
-				}
-				if (event.eventType === 'run.execution.stdout') {
-					const line = String(event.payload?.line || '');
-					if (line) {
-						stdoutLines.push(line);
-					}
-				}
+			const evts = nextEvents[run.id] || [];
+			let plan = '', code = run.python_code || '';
+			const out: string[] = [];
+			for (const e of evts) {
+				if (e.eventType === 'run.planning.delta') plan = appendChunk(plan, String(e.payload?.delta || ''));
+				if (e.eventType === 'run.codegen.delta') code = appendChunk(code, String(e.payload?.delta || ''));
+				if (e.eventType === 'run.execution.stdout') { const l = String(e.payload?.line || ''); if (l) out.push(l); }
 			}
-			nextPlanning[run.id] = planningBuffer;
-			nextCode[run.id] = codeBuffer;
-			nextStdout[run.id] = stdoutLines;
+			np[run.id] = plan; nc[run.id] = code; ns[run.id] = out;
 		}
-		setStreamedPlanningByRun(nextPlanning);
-		setStreamedCodeByRun(nextCode);
-		setStdoutByRun(nextStdout);
+		setStreamedPlanningByRun(np); setStreamedCodeByRun(nc); setStdoutByRun(ns);
 	};
 
-	const refreshThreadRail = async (preferredThreadId?: string) => {
-		const response = await supeApi.listAskThreads();
-		const nextThreads = response?.data?.data?.threads || [];
-		setThreads(nextThreads);
+	/* ── Thread / Run loading ─────────────────────────────────── */
+	const refreshThreadRail = async (preferred?: string) => {
+		const res = await supeApi.listAskThreads();
+		const next = res?.data?.data?.threads || [];
+		setThreads(next);
 		window.dispatchEvent(new CustomEvent(ASK_THREAD_EVENT));
-		const preferred = preferredThreadId || threadParam;
-		const nextSelected =
-			(preferred && nextThreads.some((thread: ISupeAskThread) => thread.id === preferred) ? preferred : '') ||
-			(selectedThreadIdRef.current && nextThreads.some((thread: ISupeAskThread) => thread.id === selectedThreadIdRef.current)
-				? selectedThreadIdRef.current
-				: nextThreads[0]?.id || '');
-		updateSelectedThreadId(nextSelected);
-		return nextSelected;
+		const pref = preferred || threadParam;
+		const sel = (pref && next.some((t: ISupeAskThread) => t.id === pref) ? pref : '')
+			|| (selectedThreadIdRef.current && next.some((t: ISupeAskThread) => t.id === selectedThreadIdRef.current) ? selectedThreadIdRef.current : next[0]?.id || '');
+		updateSelectedThreadId(sel);
+		return sel;
 	};
 
 	const connectRunEvents = (runId: string, threadId: string) => {
@@ -515,431 +410,296 @@ export function AskView() {
 		eventSourceRef.current = source;
 		source.onmessage = (event) => {
 			try {
-				const payload = JSON.parse(event.data) as ISupeAskEvent;
-				setEventsByRun((current) => ({
-					...current,
-					[runId]: [...(current[runId] || []).filter((item) => item.id !== payload.id), payload]
-				}));
-				if (payload.eventType === 'run.planning.delta') {
-					setStreamedPlanningByRun((current) => ({ ...current, [runId]: appendChunk(current[runId] || '', String(payload.payload?.delta || '')) }));
+				const p = JSON.parse(event.data) as ISupeAskEvent;
+				setEventsByRun((c) => ({ ...c, [runId]: [...(c[runId] || []).filter((x) => x.id !== p.id), p] }));
+
+				// Thinking events — immediate feedback
+				if (p.eventType === 'run.thinking') {
+					setThinkingByRun((c) => ({ ...c, [runId]: { stage: String(p.payload?.stage || ''), message: String(p.payload?.message || '') } }));
+					scrollToBottom();
 				}
-				if (payload.eventType === 'run.codegen.delta') {
-					setStreamedCodeByRun((current) => ({ ...current, [runId]: appendChunk(current[runId] || '', String(payload.payload?.delta || '')) }));
+				if (p.eventType === 'run.planning.delta') {
+					setStreamedPlanningByRun((c) => ({ ...c, [runId]: appendChunk(c[runId] || '', String(p.payload?.delta || '')) }));
+					scrollToBottom();
 				}
-				if (payload.eventType === 'run.codegen.completed') {
+				if (p.eventType === 'run.codegen.delta') {
+					setStreamedCodeByRun((c) => ({ ...c, [runId]: (c[runId] || '') + String(p.payload?.delta || '') }));
+					// Clear thinking once code starts streaming
+					setThinkingByRun((c) => ({ ...c, [runId]: { stage: 'codegen', message: 'Writing code...' } }));
+				}
+				if (p.eventType === 'run.codegen.completed') {
 					applyRunPatch(runId, {
-						title: String(payload.payload?.title || ''),
-						assistant_summary: String(payload.payload?.assistantSummary || ''),
-						python_code: String(payload.payload?.pythonCode || ''),
-						artifact_plan: payload.payload?.artifactPlan || {}
+						title: String(p.payload?.title || ''),
+						assistant_summary: String(p.payload?.assistantSummary || ''),
+						python_code: String(p.payload?.pythonCode || ''),
+						artifact_plan: p.payload?.artifactPlan || {}
 					});
-					setStreamedCodeByRun((current) => ({ ...current, [runId]: String(payload.payload?.pythonCode || current[runId] || '') }));
+					setStreamedCodeByRun((c) => ({ ...c, [runId]: String(p.payload?.pythonCode || c[runId] || '') }));
+					scrollToBottom();
 				}
-				if (payload.eventType === 'run.execution.stdout') {
-					const line = String(payload.payload?.line || '');
-					if (line) {
-						setStdoutByRun((current) => ({ ...current, [runId]: [...(current[runId] || []), line] }));
-					}
+				if (p.eventType === 'run.execution.stdout') {
+					const line = String(p.payload?.line || '');
+					if (line) setStdoutByRun((c) => ({ ...c, [runId]: [...(c[runId] || []), line] }));
 				}
-				if (payload.eventType === 'run.artifact' && payload.payload?.artifact) {
-					const artifact = payload.payload.artifact as ISupeAskArtifact;
-					setArtifactsByRun((current) => ({
-						...current,
-						[runId]: [...(current[runId] || []).filter((item) => item.id !== artifact.id), artifact].sort((left, right) => left.ordinal - right.ordinal)
+				if (p.eventType === 'run.artifact' && p.payload?.artifact) {
+					const art = p.payload.artifact as ISupeAskArtifact;
+					setArtifactsByRun((c) => ({
+						...c,
+						[runId]: [...(c[runId] || []).filter((x) => x.id !== art.id), art].sort((a, b) => a.ordinal - b.ordinal)
 					}));
+					scrollToBottom();
 				}
-				if (payload.eventType === 'run.execution.progress') {
-					applyRunPatch(runId, { status: 'running' });
-				}
-				if (payload.eventType === 'run.failed') {
-					applyRunPatch(runId, { status: 'failed', error_message: String(payload.payload?.message || 'Run failed') });
+				if (p.eventType === 'run.execution.progress') applyRunPatch(runId, { status: 'running' });
+				if (p.eventType === 'run.failed') {
+					applyRunPatch(runId, { status: 'failed', error_message: String(p.payload?.message || 'Run failed') });
+					setThinkingByRun((c) => { const n = { ...c }; delete n[runId]; return n; });
 					closeEventStream();
 					void Promise.allSettled([loadThread(threadId, false), refreshThreadRail(threadId)]);
 				}
-				if (payload.eventType === 'run.completed') {
+				if (p.eventType === 'run.completed') {
 					applyRunPatch(runId, { status: 'completed' });
+					setThinkingByRun((c) => { const n = { ...c }; delete n[runId]; return n; });
 					closeEventStream();
 					void Promise.allSettled([loadThread(threadId, false), refreshThreadRail(threadId)]);
 				}
-				if (payload.eventType === 'run.cancelled') {
+				if (p.eventType === 'run.cancelled') {
 					applyRunPatch(runId, { status: 'cancelled' });
+					setThinkingByRun((c) => { const n = { ...c }; delete n[runId]; return n; });
 					closeEventStream();
 					void Promise.allSettled([loadThread(threadId, false), refreshThreadRail(threadId)]);
 				}
-			} catch {
-				// ignore malformed keepalive events
-			}
+			} catch { /* ignore malformed keepalive */ }
 		};
 		source.onerror = () => {
-			const run = runs.find((item) => item.id === runId);
-			if (!run || ['completed', 'failed', 'cancelled'].includes(run.status)) {
-				closeEventStream();
-			}
+			const r = runs.find((x) => x.id === runId);
+			if (!r || ['completed', 'failed', 'cancelled'].includes(r.status)) closeEventStream();
 		};
 	};
 
-	const loadThread = async (threadId: string, connectActiveRun = true) => {
-		const requestId = loadThreadRequestRef.current + 1;
-		loadThreadRequestRef.current = requestId;
+	const loadThread = async (threadId: string, connectActive = true) => {
+		const reqId = ++loadThreadRequestRef.current;
 		try {
 			setLoadingThread(true);
-			const response = await supeApi.getAskThread(threadId);
-			if (requestId !== loadThreadRequestRef.current || selectedThreadIdRef.current !== threadId) {
-				return;
+			const res = await supeApi.getAskThread(threadId);
+			if (reqId !== loadThreadRequestRef.current || selectedThreadIdRef.current !== threadId) return;
+			const d = res?.data?.data || {};
+			setMessages(d.messages || []);
+			setRuns(d.runs || []);
+			setArtifactsByRun(d.artifactsByRun || {});
+			setEventsByRun(d.eventsByRun || {});
+			hydrateRunStreams(d.eventsByRun || {}, d.runs || []);
+			const nextRun = activeRunIdRef.current && (d.runs || []).some((r: ISupeAskRun) => r.id === activeRunIdRef.current)
+				? activeRunIdRef.current : (d.runs || []).at(-1)?.id || '';
+			updateActiveRunId(nextRun);
+			if (connectActive && nextRun) {
+				const cur = (d.runs || []).find((r: ISupeAskRun) => r.id === nextRun);
+				if (cur && ['queued', 'running'].includes(cur.status)) connectRunEvents(nextRun, threadId);
 			}
-			const data = response?.data?.data || {};
-			const nextMessages = data.messages || [];
-			const nextRuns = data.runs || [];
-			const nextArtifactsByRun = data.artifactsByRun || {};
-			const nextEventsByRun = data.eventsByRun || {};
-			setMessages(nextMessages);
-			setRuns(nextRuns);
-			setArtifactsByRun(nextArtifactsByRun);
-			setEventsByRun(nextEventsByRun);
-			hydrateRunStreams(nextEventsByRun, nextRuns);
-			const nextRunId =
-				activeRunIdRef.current && nextRuns.some((run: ISupeAskRun) => run.id === activeRunIdRef.current)
-					? activeRunIdRef.current
-					: nextRuns[nextRuns.length - 1]?.id || '';
-			updateActiveRunId(nextRunId);
-			if (connectActiveRun && nextRunId) {
-				const currentRun = nextRuns.find((run: ISupeAskRun) => run.id === nextRunId);
-				if (currentRun && ['queued', 'running'].includes(currentRun.status)) {
-					connectRunEvents(nextRunId, threadId);
-				}
-			}
-		} finally {
-			if (requestId === loadThreadRequestRef.current) {
-				setLoadingThread(false);
-			}
-		}
+		} finally { if (reqId === loadThreadRequestRef.current) setLoadingThread(false); }
 	};
 
-	const loadThreads = async (preferredThreadId?: string) => {
+	const loadThreads = async (preferred?: string) => {
 		try {
 			setLoadingThreads(true);
-			const nextSelected = await refreshThreadRail(preferredThreadId);
-			if (nextSelected) {
-				await loadThread(nextSelected, true);
-			} else {
+			const sel = await refreshThreadRail(preferred);
+			if (sel) await loadThread(sel, true);
+			else {
 				closeEventStream();
-				setMessages([]);
-				setRuns([]);
-				setArtifactsByRun({});
-				setEventsByRun({});
-				setStreamedPlanningByRun({});
-				setStreamedCodeByRun({});
-				setStdoutByRun({});
+				setMessages([]); setRuns([]); setArtifactsByRun({}); setEventsByRun({});
+				setStreamedPlanningByRun({}); setStreamedCodeByRun({}); setStdoutByRun({}); setThinkingByRun({});
 				updateActiveRunId('');
 			}
-		} finally {
-			setLoadingThreads(false);
-		}
+		} finally { setLoadingThreads(false); }
 	};
 
 	const ensureThread = async () => {
-		if (selectedThreadIdRef.current) {
-			return selectedThreadIdRef.current;
-		}
-		const response = await supeApi.createAskThread({});
-		const threadId = String(response?.data?.data?.thread?.id || '');
-		updateSelectedThreadId(threadId);
+		if (selectedThreadIdRef.current) return selectedThreadIdRef.current;
+		const res = await supeApi.createAskThread({});
+		const id = String(res?.data?.data?.thread?.id || '');
+		updateSelectedThreadId(id);
 		window.dispatchEvent(new CustomEvent(ASK_THREAD_EVENT));
-		await loadThreads(threadId);
-		return threadId;
+		await loadThreads(id);
+		return id;
 	};
 
 	const handleCreateThread = async () => {
 		try {
-			setComposerError('');
-			closeEventStream();
-			const response = await supeApi.createAskThread({});
-			const threadId = String(response?.data?.data?.thread?.id || '');
-			updateSelectedThreadId(threadId);
-			setMessages([]);
-			setRuns([]);
-			setArtifactsByRun({});
-			setEventsByRun({});
-			setStreamedPlanningByRun({});
-			setStreamedCodeByRun({});
-			setStdoutByRun({});
-			updateActiveRunId('');
-			setPanelTab('report');
+			setComposerError(''); closeEventStream();
+			const res = await supeApi.createAskThread({});
+			const id = String(res?.data?.data?.thread?.id || '');
+			updateSelectedThreadId(id);
+			setMessages([]); setRuns([]); setArtifactsByRun({}); setEventsByRun({});
+			setStreamedPlanningByRun({}); setStreamedCodeByRun({}); setStdoutByRun({}); setThinkingByRun({});
+			updateActiveRunId(''); setCodeCanvasOpen(false);
 			window.dispatchEvent(new CustomEvent(ASK_THREAD_EVENT));
-			await loadThreads(threadId);
-		} catch (error: any) {
-			setComposerError(error?.response?.data?.detail || 'Failed to create Ask thread');
-		}
+			await loadThreads(id);
+		} catch (e: any) { setComposerError(e?.response?.data?.detail || 'Failed to create thread'); }
 	};
 
-	const handleSubmit = async (presetQuestion?: string) => {
-		const nextQuestion = (presetQuestion ?? query).trim();
-		if (!nextQuestion) {
-			setComposerError('Enter a question to start an Ask run.');
-			return false;
-		}
-
+	const handleSubmit = async (preset?: string) => {
+		const q = (preset ?? query).trim();
+		if (!q) { setComposerError('Enter a question.'); return false; }
 		try {
-			setSubmitting(true);
-			setComposerError('');
-			const threadId = await ensureThread();
-			const response = await supeApi.createAskMessage(threadId, { question: nextQuestion });
-			const runId = String(response?.data?.data?.run?.id || '');
+			setSubmitting(true); setComposerError('');
+			const tid = await ensureThread();
+			const res = await supeApi.createAskMessage(tid, { question: q });
+			const rid = String(res?.data?.data?.run?.id || '');
 			setQuery('');
-			updateActiveRunId(runId);
-			setPanelTab('report');
-			setStreamedPlanningByRun((current) => ({ ...current, [runId]: '' }));
-			setStreamedCodeByRun((current) => ({ ...current, [runId]: '' }));
-			setStdoutByRun((current) => ({ ...current, [runId]: [] }));
-			await loadThread(threadId, false);
-			await refreshThreadRail(threadId);
-			connectRunEvents(runId, threadId);
+			updateActiveRunId(rid);
+			setStreamedPlanningByRun((c) => ({ ...c, [rid]: '' }));
+			setStreamedCodeByRun((c) => ({ ...c, [rid]: '' }));
+			setStdoutByRun((c) => ({ ...c, [rid]: [] }));
+			setThinkingByRun((c) => ({ ...c, [rid]: { stage: 'retrieval', message: 'Starting...' } }));
+			await loadThread(tid, false);
+			await refreshThreadRail(tid);
+			connectRunEvents(rid, tid);
+			scrollToBottom();
 			return true;
-		} catch (error: any) {
-			setComposerError(error?.response?.data?.detail || error?.response?.data?.message || 'Failed to create Ask run');
+		} catch (e: any) {
+			setComposerError(e?.response?.data?.detail || e?.response?.data?.message || 'Failed to create run');
 			return false;
-		} finally {
-			setSubmitting(false);
-		}
+		} finally { setSubmitting(false); }
 	};
 
 	const handleCancelRun = async () => {
-		if (!selectedRun) {
-			return;
-		}
-		try {
-			await supeApi.cancelAskRun(selectedRun.id);
-		} catch (error: any) {
-			setComposerError(error?.response?.data?.detail || 'Failed to cancel Ask run');
-		}
+		if (!selectedRun) return;
+		try { await supeApi.cancelAskRun(selectedRun.id); }
+		catch (e: any) { setComposerError(e?.response?.data?.detail || 'Failed to cancel'); }
 	};
 
+	/* ── Effects ───────────────────────────────────────────────── */
+	useEffect(() => { void loadThreads(threadParam || undefined); return () => closeEventStream(); }, [threadParam]);
+	useEffect(() => { if (!queryParam) { hydratedQueryRef.current = ''; bootstrapRunRef.current = ''; return; } if (queryParam !== hydratedQueryRef.current) { hydratedQueryRef.current = queryParam; setQuery(queryParam); } }, [queryParam]);
 	useEffect(() => {
-		void loadThreads(threadParam || undefined);
-		return () => closeEventStream();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [threadParam]);
-
-	useEffect(() => {
-		if (!queryParam) {
-			hydratedQueryRef.current = '';
-			bootstrapRunRef.current = '';
-			return;
-		}
-		if (queryParam !== hydratedQueryRef.current) {
-			hydratedQueryRef.current = queryParam;
-			setQuery(queryParam);
-		}
-	}, [queryParam]);
-
-	useEffect(() => {
-		if (!queryParam || loadingThreads || submitting) {
-			return;
-		}
-		if (bootstrapRunRef.current === queryParam) {
-			return;
-		}
-
-		bootstrapRunRef.current = queryParam;
-		setQuery(queryParam);
+		if (!queryParam || loadingThreads || submitting) return;
+		if (bootstrapRunRef.current === queryParam) return;
+		bootstrapRunRef.current = queryParam; setQuery(queryParam);
 		void (async () => {
-			const started = await handleSubmit(queryParam);
-			if (!started) {
-				bootstrapRunRef.current = '';
-				return;
-			}
-			try {
-				const nextParams = new URLSearchParams(searchParams);
-				nextParams.delete('q');
-				setSearchParams(nextParams, { replace: true });
-			} catch {
-				bootstrapRunRef.current = '';
-			}
+			const ok = await handleSubmit(queryParam);
+			if (!ok) { bootstrapRunRef.current = ''; return; }
+			try { const p = new URLSearchParams(searchParams); p.delete('q'); setSearchParams(p, { replace: true }); }
+			catch { bootstrapRunRef.current = ''; }
 		})();
 	}, [loadingThreads, queryParam, searchParams, setSearchParams, submitting]);
 
-	const latestAssistantRunId = [...messages].reverse().find((message) => message.role === 'assistant' && message.run_id)?.run_id || '';
-	const showStreamingBubble =
-		selectedRun &&
-		['queued', 'running'].includes(selectedRun.status) &&
-		(Boolean(streamedNarrative) || Boolean(streamedCode) || Boolean(selectedStdout.length)) &&
-		String(latestAssistantRunId || '') !== selectedRun.id;
-
+	/* ── Render ────────────────────────────────────────────────── */
 	return (
 		<div className={styles.askPage}>
+			{/* Header */}
 			<div className={styles.askHeader}>
 				<div>
 					<h1 className={styles.askHeaderTitle}>Ask</h1>
-					<p className={styles.askHeaderSubtitle}>
-						Leadership-console Ask with structured report blocks, live code streaming, and reusable analytical threads.
-					</p>
+					<p className={styles.askHeaderSubtitle}>Ask anything about your business data.</p>
 				</div>
 				<Space>
 					{selectedRun ? <Tag color={formatStatus(selectedRun.status)}>{selectedRun.status}</Tag> : null}
-					<Button icon={<PlusOutlined />} onClick={() => void handleCreateThread()}>
-						New chat
-					</Button>
+					<Button icon={<PlusOutlined />} onClick={() => void handleCreateThread()}>New chat</Button>
 				</Space>
 			</div>
 
-			<div className={styles.askWorkspaceWide}>
+			{/* Main workspace — conversation + optional code canvas */}
+			<div className={`${styles.askWorkspaceCanvas} ${codeCanvasOpen ? styles.askWorkspaceCanvasWithCode : ''}`}>
+				{/* Conversation pane */}
 				<section className={styles.askConversationPane}>
 					<div className={styles.askConversationBody}>
 						{loadingThread || (loadingThreads && !selectedThreadId) ? (
 							<Skeleton active paragraph={{ rows: 10 }} />
 						) : messages.length ? (
 							<div className={styles.askMessageStack}>
-								{messages.map((message) => {
-									const messageRun = message.run_id ? runs.find((run) => run.id === String(message.run_id)) || null : null;
-									const messageArtifacts = messageRun ? artifactsByRun[messageRun.id] || [] : [];
+								{messages.map((msg) => {
+									const msgRun = msg.run_id ? runs.find((r) => r.id === String(msg.run_id)) || null : null;
+									const msgArtifacts = msgRun ? artifactsByRun[msgRun.id] || [] : [];
+									const msgThinking = msgRun ? thinkingByRun[msgRun.id] || null : null;
+									const msgNarrative = msgRun ? streamedPlanningByRun[msgRun.id] || '' : '';
 									return (
-										<div
-											key={message.id}
-											className={`${styles.askMessageCard} ${
-												message.role === 'user' ? styles.askMessageCardUser : styles.askMessageCardAssistant
-											}`}
-										>
+										<div key={msg.id} className={`${styles.askMessageCard} ${msg.role === 'user' ? styles.askMessageCardUser : styles.askMessageCardAssistant}`}>
 											<div className={styles.askMessageMeta}>
-												<span>{message.role === 'user' ? 'You' : 'Supe Ask'}</span>
-												{messageRun ? (
-													<Button
-														type="link"
-														size="small"
-														className={styles.askRunLink}
-														onClick={() => {
-															updateActiveRunId(messageRun.id);
-															if (['queued', 'running'].includes(messageRun.status)) {
-																connectRunEvents(messageRun.id, selectedThreadIdRef.current);
-																return;
-															}
-															closeEventStream();
-														}}
-													>
-														View run
-													</Button>
-												) : null}
+												<span>{msg.role === 'user' ? 'You' : 'Supe Ask'}</span>
+												{msgRun && ['queued', 'running'].includes(msgRun.status) ? <Tag color="processing" icon={<LoadingOutlined />}>live</Tag> : null}
 											</div>
-											<div className={styles.askMessageContent}>{message.content}</div>
-											{messageRun ? <StructuredAssistantMessage run={messageRun} artifacts={messageArtifacts} onFollowUp={(question) => void handleSubmit(question)} /> : null}
+											{msg.role === 'user' ? (
+												<div className={styles.askMessageContent}>{msg.content}</div>
+											) : msgRun ? (
+												<StructuredAssistantMessage
+													run={msgRun}
+													artifacts={msgArtifacts}
+													thinkingStage={msgThinking?.stage || ''}
+													thinkingMessage={msgThinking?.message || ''}
+													streamedNarrative={msgNarrative}
+													onFollowUp={(q) => void handleSubmit(q)}
+													onOpenCode={() => setCodeCanvasOpen(true)}
+												/>
+											) : (
+												<div className={styles.askMessageContent}>{msg.content}</div>
+											)}
 										</div>
 									);
 								})}
 
-								{showStreamingBubble ? (
+								{/* Streaming bubble for active run not yet in message history */}
+								{selectedRun && ['queued', 'running'].includes(selectedRun.status)
+									&& !messages.some((m) => m.run_id === selectedRun.id) ? (
 									<div className={`${styles.askMessageCard} ${styles.askMessageCardAssistant}`}>
 										<div className={styles.askMessageMeta}>
 											<span>Supe Ask</span>
-											<Tag color="processing">live</Tag>
+											<Tag color="processing" icon={<LoadingOutlined />}>live</Tag>
 										</div>
-										<div className={styles.askStreamingBody}>
-											{streamedNarrative ? <div className={styles.askSummaryText}>{streamedNarrative}</div> : null}
-											{streamedCode ? (
-												<div className={styles.askStreamingCodeStatus}>
-													<CodeOutlined /> Streaming code preview into the inspector
-												</div>
-											) : null}
-											{selectedStdout.length ? <pre className={styles.askInlineLogBlock}>{selectedStdout.join('\n')}</pre> : null}
-										</div>
+										<StructuredAssistantMessage
+											run={selectedRun}
+											artifacts={selectedArtifacts}
+											thinkingStage={thinking?.stage || ''}
+											thinkingMessage={thinking?.message || ''}
+											streamedNarrative={streamedNarrative}
+											onFollowUp={(q) => void handleSubmit(q)}
+											onOpenCode={() => setCodeCanvasOpen(true)}
+										/>
 									</div>
 								) : null}
+
+								<div ref={conversationEndRef} />
 							</div>
 						) : (
 							<div className={styles.askEmptyState}>
-								<div className={styles.askEmptyIcon}>
-									<MessageOutlined />
-								</div>
+								<div className={styles.askEmptyIcon}><MessageOutlined /></div>
 								<h2 className={styles.askEmptyTitle}>What do you want to know?</h2>
-								<p className={styles.askEmptySubtitle}>
-									Ask about revenue, coverage, outstanding, pipeline health, or follow-up actions. The answer will stream into a leadership-console report.
-								</p>
+								<p className={styles.askEmptySubtitle}>Ask about revenue, coverage, outstanding, pipeline health, or follow-up actions.</p>
 								<div className={styles.askChipRow}>
-									{LEADERSHIP_PROMPT_SUGGESTIONS.slice(0, 3).map((item) => (
-										<Button key={item} className={styles.askChip} onClick={() => setQuery(item)}>
-											{item}
-										</Button>
+									{LEADERSHIP_PROMPT_SUGGESTIONS.slice(0, 3).map((s) => (
+										<Button key={s} className={styles.askChip} onClick={() => setQuery(s)}>{s}</Button>
 									))}
 								</div>
 							</div>
 						)}
 					</div>
 
+					{/* Composer */}
 					<div className={styles.askComposer}>
 						<PromptCommandBar
 							compact
 							submitLabel={selectedRun && ['queued', 'running'].includes(selectedRun.status) ? 'Running' : 'Run Ask'}
 							disabled={submitting}
 							suggestions={LEADERSHIP_PROMPT_SUGGESTIONS}
-							onQuickPick={(question) => {
-								setQuery(question);
-								void handleSubmit(question);
-							}}
-							onSubmit={(question) => {
-								setQuery(question);
-								void handleSubmit(question);
-							}}
+							onQuickPick={(q) => { setQuery(q); void handleSubmit(q); }}
+							onSubmit={(q) => { setQuery(q); void handleSubmit(q); }}
 						/>
 						<div className={styles.askComposerFooter}>
 							<div className={styles.askComposerError}>{composerError || null}</div>
 							<Space>
 								{selectedRun && ['queued', 'running'].includes(selectedRun.status) ? (
-									<Button icon={<StopOutlined />} onClick={handleCancelRun} aria-label="Cancel Ask run">
-										Cancel Run
-									</Button>
+									<Button icon={<StopOutlined />} onClick={handleCancelRun}>Cancel</Button>
 								) : null}
 							</Space>
 						</div>
 					</div>
 				</section>
 
-				<aside className={styles.askDetailPane}>
-					<Tabs
-						activeKey={panelTab}
-						onChange={(value) => setPanelTab(value as 'report' | 'code')}
-						items={[
-							{
-								key: 'report',
-								label: 'Report',
-								children: selectedRun ? (
-									<div className={styles.askInspectorStack}>
-										<div className={styles.askRunStatusRow}>
-											<Tag color={formatStatus(selectedRun.status)}>{selectedRun.status}</Tag>
-											{selectedRun.error_message ? <span className={styles.askRunError}>{selectedRun.error_message}</span> : null}
-										</div>
-										<ReportSectionRail plan={selectedRun.artifact_plan} />
-										<LeadershipHighlights highlights={selectedRun.artifact_plan?.key_highlights || []} />
-										{selectedArtifacts.length ? (
-											<div className={styles.askArtifactsStack}>
-												{selectedArtifacts.map((artifact) => (
-													<AskArtifactRenderer key={artifact.id} artifact={artifact} />
-												))}
-											</div>
-										) : (
-											<Empty description="No report artifacts yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-										)}
-									</div>
-								) : (
-									<Empty description="No report yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-								)
-							},
-							{
-								key: 'code',
-								label: (
-									<span>
-										<CodeOutlined /> Code
-									</span>
-								),
-								children: selectedRun ? (
-									<div className={styles.askCodePanel}>
-										<pre className={styles.askCodeBlock}>{streamedCode || selectedRun.python_code || 'No code generated yet.'}</pre>
-										{selectedStdout.length ? <pre className={styles.askLogBlock}>{selectedStdout.join('\n')}</pre> : null}
-									</div>
-								) : (
-									<Empty description="No code yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-								)
-							}
-						]}
-					/>
-				</aside>
+				{/* Canvas-style code pane — slides in from the right */}
+				<CodeCanvas
+					code={streamedCode}
+					stdout={selectedStdout}
+					open={codeCanvasOpen}
+					onClose={() => setCodeCanvasOpen(false)}
+				/>
 			</div>
 		</div>
 	);

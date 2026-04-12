@@ -243,11 +243,18 @@ export function ImportsView() {
       setImports(batches);
 
       const nextSelectedId = preferredBatchId ?? selectedBatchId ?? (batches.length ? Number(batches[0].id) : null);
+      const nextSelectedBatch =
+        nextSelectedId != null ? batches.find((row: ImportBatchRow) => Number(row.id) === Number(nextSelectedId)) || null : null;
       setSelectedBatchId(nextSelectedId);
+      if (nextSelectedBatch) {
+        setSelectedBatch((current) =>
+          current && Number(current.id) === Number(nextSelectedBatch.id) ? { ...nextSelectedBatch, ...current } : nextSelectedBatch
+        );
+      } else if (!nextSelectedId) {
+        setSelectedBatch(null);
+      }
       if (nextSelectedId) {
         void loadBatch(nextSelectedId, { silent: options.silent });
-      } else {
-        setSelectedBatch(null);
       }
     } catch (error: any) {
       if (!options.silent) message.error(error?.response?.data?.message || 'Failed to load imports');
@@ -750,7 +757,7 @@ export function ImportsView() {
           style={{ borderRadius: 24, boxShadow: '0 18px 36px rgba(15, 23, 42, 0.06)' }}
           bodyStyle={{ padding: 0 }}
         >
-          {loadingDetail ? (
+          {loadingDetail && !selectedBatch ? (
             <div style={{ minHeight: 320, display: 'grid', placeItems: 'center' }}>
               <Spin />
             </div>
@@ -781,6 +788,7 @@ export function ImportsView() {
                     </Typography.Text>
                   </div>
                   <Space wrap size={10}>
+                    {loadingDetail ? <Spin size="small" /> : null}
                     {renderStatusPill(selectedBatch.importStatus)}
                     {renderStatusPill(selectedBatch.refreshStatus, 'No Ask prep')}
                   </Space>

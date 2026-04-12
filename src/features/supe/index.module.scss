@@ -390,6 +390,11 @@
 	padding: 14px;
 }
 
+.askArtifactCardWide,
+.askArtifactSection {
+	grid-column: 1 / -1;
+}
+
 .askArtifactHeader {
 	display: flex;
 	align-items: center;
@@ -406,6 +411,23 @@
 	color: #1e293b;
 	line-height: 1.65;
 	text-wrap: pretty;
+}
+
+.askArtifactSection {
+	padding: 4px 2px 0;
+}
+
+.askArtifactSectionTitle {
+	font-size: 14px;
+	font-weight: 700;
+	color: #172033;
+}
+
+.askArtifactSectionSubtitle {
+	margin-top: 4px;
+	font-size: 12px;
+	line-height: 1.5;
+	color: #64748b;
 }
 
 .askMetricArtifact {

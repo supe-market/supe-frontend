@@ -199,6 +199,9 @@ export const supeApi = {
   createAskThread(payload: Record<string, any> = {}) {
     return askApi.post('/ask/threads', payload);
   },
+  deleteAskThread(threadId: string) {
+    return askApi.delete(`/ask/threads/${threadId}`);
+  },
   getAskThread(threadId: string) {
     return askApi.get(`/ask/threads/${threadId}`);
   },

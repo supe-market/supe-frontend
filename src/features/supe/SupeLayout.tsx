@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Button, Drawer } from 'antd';
 import {
   BarChartOutlined,
+  DeleteOutlined,
   DownOutlined,
   DeploymentUnitOutlined,
   FileTextOutlined,
@@ -203,6 +204,24 @@ export function SupeLayout() {
     '--sidebar-width': `${sidebarWidth}px`
   } as CSSProperties;
 
+  const handleDeleteAskThread = async (threadId: string) => {
+    if (!window.confirm('Delete this chat thread?')) {
+      return;
+    }
+    try {
+      await supeApi.deleteAskThread(threadId);
+      const remainingThreads = askThreads.filter((thread) => thread.id !== threadId);
+      setAskThreads(remainingThreads);
+      window.dispatchEvent(new CustomEvent('supe-ask-threads-updated'));
+      if (currentAskThreadId === threadId) {
+        const nextThreadId = remainingThreads[0]?.id || '';
+        navigate(nextThreadId ? `${supeAskRoute}?thread=${encodeURIComponent(nextThreadId)}` : supeAskRoute);
+      }
+    } catch {
+      // Keep the shell stable even if the archive call fails.
+    }
+  };
+
   const sidebarBody = (
     <div className={styles.sidebarBody}>
       <Link
@@ -353,19 +372,30 @@ export function SupeLayout() {
               {loadingAskThreads ? (
                 <div className={styles.askThreadNavEmpty}>Loading threads…</div>
               ) : askThreads.length ? (
-                askThreads.slice(0, 10).map((thread) => (
-                  <button
-                    key={thread.id}
-                    type="button"
-                    className={`${styles.askThreadNavItem} ${currentAskThreadId === thread.id ? styles.askThreadNavItemActive : ''}`}
-                    onClick={() => {
-                      setDrawerOpen(false);
-                      navigate(`${supeAskRoute}?thread=${encodeURIComponent(thread.id)}`);
-                    }}
-                  >
-                    <span className={styles.askThreadNavItemTitle}>{thread.title}</span>
-                    <span className={styles.askThreadNavItemMeta}>{thread.latest_question || thread.latest_run_status || 'No runs yet'}</span>
-                  </button>
+                askThreads.map((thread) => (
+                  <div key={thread.id} className={styles.askThreadNavRow}>
+                    <button
+                      type="button"
+                      title={thread.title}
+                      className={`${styles.askThreadNavItem} ${currentAskThreadId === thread.id ? styles.askThreadNavItemActive : ''}`}
+                      onClick={() => {
+                        setDrawerOpen(false);
+                        navigate(`${supeAskRoute}?thread=${encodeURIComponent(thread.id)}`);
+                      }}
+                    >
+                      <span className={styles.askThreadNavItemTitle}>{thread.title}</span>
+                    </button>
+                    <button
+                      type="button"
+                      title="Delete thread"
+                      className={styles.askThreadDeleteButton}
+                      onClick={() => {
+                        void handleDeleteAskThread(thread.id);
+                      }}
+                    >
+                      <DeleteOutlined />
+                    </button>
+                  </div>
                 ))
               ) : (
                 <div className={styles.askThreadNavEmpty}>No Ask threads yet.</div>

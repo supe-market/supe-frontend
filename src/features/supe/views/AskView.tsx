@@ -70,6 +70,34 @@ function buildShareText(run: ISupeAskRun) {
 	return lines.filter(Boolean).join('\n');
 }
 
+function isImplementationPlaceholder(value?: string | null) {
+	const text = String(value || '').trim().toLowerCase();
+	if (!text) return true;
+	return /calculated in script|computed at runtime|runtime value|from sql|from query|query result|script output/.test(text);
+}
+
+function formatCompactNumber(value: number, maximumFractionDigits = 0) {
+	return new Intl.NumberFormat('en-IN', { maximumFractionDigits }).format(value);
+}
+
+function formatMetricValue(payload: Record<string, any>) {
+	const rawValue = payload?.value;
+	if (rawValue == null || rawValue === '') return '';
+	const numericValue = Number(rawValue);
+	if (!Number.isFinite(numericValue)) return String(rawValue);
+	const unit = String(payload?.unit || 'number');
+	if (unit === 'currency') return `₹${formatCompactNumber(numericValue, 0)}`;
+	if (unit === 'percent') return `${formatCompactNumber(numericValue, 1)}%`;
+	return formatCompactNumber(numericValue, 0);
+}
+
+function formatMetricDelta(payload: Record<string, any>) {
+	const delta = Number(payload?.percentDelta);
+	if (!Number.isFinite(delta)) return '';
+	const prefix = delta > 0 ? '+' : '';
+	return `${prefix}${formatCompactNumber(delta, 1)}% vs previous`;
+}
+
 /* ─────────────────────── Thinking indicator ──────────────────── */
 
 const THINKING_MESSAGES: Record<string, string> = {
@@ -145,21 +173,30 @@ function AskChart({ artifact }: { artifact: ISupeAskArtifact }) {
 function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 	if (artifact.artifact_type === 'markdown') {
 		return (
-			<div className={styles.askArtifactCard}>
+			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
 				<div className={styles.askArtifactHeader}>{artifact.title}</div>
 				<div className={styles.askMarkdownBlock}>{artifact.payload?.markdown || ''}</div>
 			</div>
 		);
 	}
 	if (artifact.artifact_type === 'metric') {
+		const deltaText = formatMetricDelta(artifact.payload || {});
 		return (
 			<div className={styles.askMetricArtifact}>
 				<div className={styles.askMetricLabel}>{artifact.payload?.label}</div>
-				<div className={styles.askMetricValue}>{String(artifact.payload?.value ?? '')}</div>
+				<div className={styles.askMetricValue}>{formatMetricValue(artifact.payload || {})}</div>
 				<div className={styles.askMetricMetaRow}>
-					{artifact.payload?.benchmark ? <span>{artifact.payload?.benchmark}</span> : <span>{artifact.title}</span>}
+					{artifact.payload?.benchmark ? <span>{artifact.payload?.benchmark}</span> : <span>{deltaText || artifact.title}</span>}
 					<span className={styles.askMetricTone}>{artifact.payload?.tone || 'neutral'}</span>
 				</div>
+			</div>
+		);
+	}
+	if (artifact.artifact_type === 'section') {
+		return (
+			<div className={styles.askArtifactSection}>
+				<div className={styles.askArtifactSectionTitle}>{artifact.payload?.title || artifact.title}</div>
+				{artifact.payload?.subtitle ? <div className={styles.askArtifactSectionSubtitle}>{artifact.payload.subtitle}</div> : null}
 			</div>
 		);
 	}
@@ -167,7 +204,7 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 		const columns = Array.isArray(artifact.payload?.columns) ? artifact.payload.columns : [];
 		const rows = Array.isArray(artifact.payload?.rows) ? artifact.payload.rows : [];
 		return (
-			<div className={styles.askArtifactCard}>
+			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
 				<div className={styles.askArtifactHeader}>
 					<span>{artifact.title}</span>
 					<Typography.Text type="secondary">Rows {artifact.payload?.rowCount ?? rows.length}</Typography.Text>
@@ -180,7 +217,7 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 	}
 	if (artifact.artifact_type === 'plotly') {
 		return (
-			<div className={styles.askArtifactCard}>
+			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
 				<div className={styles.askArtifactHeader}>{artifact.title}</div>
 				<AskChart artifact={artifact} />
 			</div>
@@ -188,7 +225,7 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 	}
 	if (artifact.artifact_type === 'log') {
 		return (
-			<div className={styles.askArtifactCard}>
+			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
 				<div className={styles.askArtifactHeader}>{artifact.title}</div>
 				<pre className={styles.askLogBlock}>{(artifact.payload?.lines || []).join('\n')}</pre>
 			</div>
@@ -212,7 +249,7 @@ function LeadershipHighlights({ highlights }: { highlights: ISupeAskKeyHighlight
 							<div className={styles.askHighlightHeading}><span>{h.title}</span><span className={`${styles.askHighlightTone} ${toneClassName(h.tone)}`}>{h.tone}</span></div>
 							<div className={styles.askHighlightDetail}>{h.detail}</div>
 						</div>
-						<div className={styles.askHighlightValue}>{h.value}</div>
+						{!isImplementationPlaceholder(h.value) ? <div className={styles.askHighlightValue}>{h.value}</div> : null}
 					</div>
 				))}
 			</div>

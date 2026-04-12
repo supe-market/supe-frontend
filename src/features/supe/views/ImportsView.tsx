@@ -5,6 +5,7 @@ import {
   Card,
   Empty,
   message,
+  Modal,
   Progress,
   Space,
   Spin,
@@ -55,7 +56,7 @@ type ImportBatchRow = {
 };
 
 const ACTIVE_IMPORT_STATUSES = new Set(['QUEUED', 'PROCESSING']);
-const ACTIVE_REFRESH_STATUSES = new Set(['QUEUED', 'RUNNING']);
+const ACTIVE_ASK_READINESS_STATUSES = new Set(['QUEUED', 'RUNNING']);
 const IMPORT_STATUS_META: Record<string, { color: string; bg: string; border: string; text: string }> = {
   COMPLETED: { color: '#287D3C', bg: '#F3FFF5', border: '#B7EB8F', text: 'Committed' },
   FAILED: { color: '#AF3029', bg: '#FFF3F1', border: '#FFCCC7', text: 'Failed' },
@@ -94,7 +95,7 @@ function isBatchActive(batch?: ImportBatchRow | null) {
   if (!batch) return false;
   const importStatus = String(batch.importStatus || '').toUpperCase();
   const refreshStatus = String(batch.refreshStatus || '').toUpperCase();
-  return ACTIVE_IMPORT_STATUSES.has(importStatus) || ACTIVE_REFRESH_STATUSES.has(refreshStatus);
+  return ACTIVE_IMPORT_STATUSES.has(importStatus) || ACTIVE_ASK_READINESS_STATUSES.has(refreshStatus);
 }
 
 function formatDateTime(value?: string | null) {
@@ -207,22 +208,23 @@ export function ImportsView() {
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const shownAskFailureRef = useRef<string | null>(null);
 
   const selectedErrors = useMemo(() => selectedBatch?.errors || [], [selectedBatch]);
   const refreshSummary = useMemo(() => summarizeRefreshError(selectedBatch?.refreshError), [selectedBatch?.refreshError]);
 
   const dashboardStats = useMemo(() => {
     let activeImports = 0;
-    let refreshQueue = 0;
-    let refreshFailures = 0;
+    let askPrepQueue = 0;
+    let askPrepFailures = 0;
     let committedRows = 0;
     for (const batch of imports) {
       if (ACTIVE_IMPORT_STATUSES.has(String(batch.importStatus || '').toUpperCase())) activeImports += 1;
-      if (ACTIVE_REFRESH_STATUSES.has(String(batch.refreshStatus || '').toUpperCase())) refreshQueue += 1;
-      if (String(batch.refreshStatus || '').toUpperCase() === 'FAILED') refreshFailures += 1;
+      if (ACTIVE_ASK_READINESS_STATUSES.has(String(batch.refreshStatus || '').toUpperCase())) askPrepQueue += 1;
+      if (String(batch.refreshStatus || '').toUpperCase() === 'FAILED') askPrepFailures += 1;
       if (String(batch.importStatus || '').toUpperCase() === 'COMPLETED') committedRows += Number(batch.validRows || 0);
     }
-    return { activeImports, refreshQueue, refreshFailures, committedRows };
+    return { activeImports, askPrepQueue, askPrepFailures, committedRows };
   }, [imports]);
 
   const selectedCompletionPct = useMemo(() => {
@@ -295,6 +297,32 @@ export function ImportsView() {
       window.clearInterval(intervalId);
     };
   }, [selectedBatch, selectedBatchId]);
+
+  useEffect(() => {
+    if (!selectedBatch || String(selectedBatch.refreshStatus || '').toUpperCase() !== 'FAILED') {
+      return;
+    }
+    const summary = summarizeRefreshError(selectedBatch.refreshError);
+    if (!summary) {
+      return;
+    }
+    const failureKey = `${selectedBatch.id}:${selectedBatch.refreshError || summary}`;
+    if (shownAskFailureRef.current === failureKey) {
+      return;
+    }
+    shownAskFailureRef.current = failureKey;
+    Modal.error({
+      title: 'Ask preparation failed',
+      content: (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <Typography.Text>{summary}</Typography.Text>
+          <Typography.Text type="secondary">
+            Import rows are committed. Ask metadata preparation needs attention before this tenant is queryable in Ask.
+          </Typography.Text>
+        </div>
+      )
+    });
+  }, [selectedBatch]);
 
   const handleStopImport = async (batchId: number) => {
     try {
@@ -429,7 +457,7 @@ export function ImportsView() {
               </Typography.Title>
               <Typography.Paragraph style={{ marginTop: 12, marginBottom: 0, fontSize: 16, color: '#4B5563', maxWidth: 820 }}>
                 The importer accepts an <code>orders_book</code> <code>.xlsx</code>, derives missing outlet, brand, and line
-                identifiers when business fields are present, commits valid rows in the background, then runs snapshot refresh as
+                identifiers when business fields are present, commits valid rows in the background, then prepares Ask metadata as
                 a separate job. This screen keeps those two stages visibly separate.
               </Typography.Paragraph>
             </div>
@@ -454,8 +482,8 @@ export function ImportsView() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             {metricCard('Active imports', formatCompactNumber(dashboardStats.activeImports), dashboardStats.activeImports ? 'accent' : 'default')}
-            {metricCard('Refresh queue', formatCompactNumber(dashboardStats.refreshQueue), dashboardStats.refreshQueue ? 'accent' : 'default')}
-            {metricCard('Refresh failures', formatCompactNumber(dashboardStats.refreshFailures), dashboardStats.refreshFailures ? 'danger' : 'default')}
+            {metricCard('Ask prep queue', formatCompactNumber(dashboardStats.askPrepQueue), dashboardStats.askPrepQueue ? 'accent' : 'default')}
+            {metricCard('Ask prep failures', formatCompactNumber(dashboardStats.askPrepFailures), dashboardStats.askPrepFailures ? 'danger' : 'default')}
             {metricCard('Committed rows', formatCompactNumber(dashboardStats.committedRows), 'default')}
           </div>
 
@@ -483,7 +511,7 @@ export function ImportsView() {
                 {[
                   ['1', 'Template gate', 'Headers are validated before the batch is accepted.'],
                   ['2', 'Bulk commit', 'Rows are normalized, missing technical IDs are derived where possible, and data is inserted in bulk.'],
-                  ['3', 'Refresh job', 'Snapshots and downstream state rebuild after the import is already committed.']
+                  ['3', 'Ask preparation', 'Semantic catalog rebuild and graph warm happen after the import is already committed.']
                 ].map(([step, title, body]) => (
                   <div
                     key={step}
@@ -612,7 +640,7 @@ export function ImportsView() {
               Recent Imports
             </Typography.Title>
             <Typography.Text style={{ color: '#6B7280' }}>
-              Select a batch to inspect import and refresh state separately.
+              Select a batch to inspect import and Ask preparation state separately.
             </Typography.Text>
           </div>
 
@@ -680,7 +708,7 @@ export function ImportsView() {
 
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
                       {renderStatusPill(record.importStatus)}
-                      {renderStatusPill(record.refreshStatus, 'No refresh')}
+                      {renderStatusPill(record.refreshStatus, 'No Ask prep')}
                     </div>
 
                     <div
@@ -702,7 +730,7 @@ export function ImportsView() {
                         </Typography.Text>
                       </div>
                       <div>
-                        <Typography.Text style={{ display: 'block', fontSize: 12, color: '#6B7280' }}>Refresh job</Typography.Text>
+                        <Typography.Text style={{ display: 'block', fontSize: 12, color: '#6B7280' }}>Ask prep job</Typography.Text>
                         <Typography.Text strong>{record.refreshJobId || '-'}</Typography.Text>
                       </div>
                     </div>
@@ -749,12 +777,12 @@ export function ImportsView() {
                       {selectedBatch.sourceFileName}
                     </Typography.Title>
                     <Typography.Text style={{ color: 'rgba(255,255,255,0.76)', fontSize: 15 }}>
-                      Import commit and refresh are tracked independently so a refresh failure does not hide successfully committed rows.
+                      Import commit and Ask preparation are tracked independently so Ask metadata failures do not hide successfully committed rows.
                     </Typography.Text>
                   </div>
                   <Space wrap size={10}>
                     {renderStatusPill(selectedBatch.importStatus)}
-                    {renderStatusPill(selectedBatch.refreshStatus, 'No refresh')}
+                    {renderStatusPill(selectedBatch.refreshStatus, 'No Ask prep')}
                   </Space>
                 </div>
 
@@ -782,12 +810,12 @@ export function ImportsView() {
                   type="error"
                   showIcon
                   icon={<ExclamationCircleOutlined />}
-                  message="Refresh job failed after import commit"
+                  message="Ask preparation failed after import commit"
                   description={
                     <div style={{ display: 'grid', gap: 8 }}>
                       <Typography.Text style={{ color: '#7F1D1D' }}>{refreshSummary}</Typography.Text>
                       <Typography.Text style={{ color: '#7F1D1D' }}>
-                        Imported rows are committed. Only derived snapshots and downstream refresh outputs need another run.
+                        Imported rows are committed. Ask semantic metadata needs another run before the tenant is queryable in Ask.
                       </Typography.Text>
                       {selectedBatch.refreshError && selectedBatch.refreshError !== refreshSummary ? (
                         <Typography.Text code style={{ whiteSpace: 'pre-wrap' }}>
@@ -810,10 +838,10 @@ export function ImportsView() {
                 {detailCell('Created', formatDateTime(selectedBatch.createdAt))}
                 {detailCell('Started', formatDateTime(selectedBatch.startedAt))}
                 {detailCell('Completed', formatDateTime(selectedBatch.completedAt))}
-                {detailCell('Refresh requested', formatDateTime(selectedBatch.refreshRequestedAt))}
-                {detailCell('Refresh started', formatDateTime(selectedBatch.refreshStartedAt))}
-                {detailCell('Refresh completed', formatDateTime(selectedBatch.refreshCompletedAt))}
-                {detailCell('Refresh job', selectedBatch.refreshJobId || 'Not queued')}
+                {detailCell('Ask prep requested', formatDateTime(selectedBatch.refreshRequestedAt))}
+                {detailCell('Ask prep started', formatDateTime(selectedBatch.refreshStartedAt))}
+                {detailCell('Ask prep completed', formatDateTime(selectedBatch.refreshCompletedAt))}
+                {detailCell('Ask prep job', selectedBatch.refreshJobId || 'Not queued')}
                 {detailCell('Notes', selectedBatch.notes || 'No notes recorded')}
               </div>
 
@@ -846,12 +874,12 @@ export function ImportsView() {
                   icon={selectedBatch.refreshStatus === 'FAILED' ? <ClockCircleOutlined /> : <CheckCircleFilled />}
                   message={
                     selectedBatch.refreshStatus === 'FAILED'
-                      ? 'Import succeeded, refresh needs attention'
+                      ? 'Import succeeded, Ask prep needs attention'
                       : 'No validation errors captured for this batch'
                   }
                   description={
                     selectedBatch.refreshStatus === 'FAILED'
-                      ? 'Canonical data is committed. Investigate the refresh job error above and rerun the refresh path after the backend fix is deployed.'
+                      ? 'Canonical data is committed. Investigate the Ask preparation error above and rerun the Ask readiness path after the backend fix is deployed.'
                       : 'This batch passed validation and has no stored row-level errors.'
                   }
                 />

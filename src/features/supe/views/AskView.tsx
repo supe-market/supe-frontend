@@ -303,17 +303,20 @@ function LeadershipHighlights({ highlights, running }: { highlights: ISupeAskKey
 			<div className={styles.askSectionHeader}><span>Key Highlights</span><Typography.Text type="secondary">What needs attention</Typography.Text></div>
 			<div className={styles.askHighlightsList}>
 				{highlights.map((h, i) => {
-					const hasValue = !isImplementationPlaceholder(h.value);
+					const hasValue = !running && !isImplementationPlaceholder(h.value);
 					return (
 						<div key={`${h.title}_${i}`} className={styles.askHighlightRow}>
 							<div className={styles.askHighlightIndex}>{i + 1}</div>
 							<div className={styles.askHighlightBody}>
-								<div className={styles.askHighlightHeading}><span>{h.title}</span><span className={`${styles.askHighlightTone} ${toneClassName(h.tone)}`}>{h.tone}</span></div>
+								<div className={styles.askHighlightHeading}>
+									<span>{h.title}</span>
+									{!running && <span className={`${styles.askHighlightTone} ${toneClassName(h.tone)}`}>{h.tone}</span>}
+								</div>
 								<div className={styles.askHighlightDetail}>{h.detail}</div>
 							</div>
-							{hasValue
-								? <div className={styles.askHighlightValue}>{h.value}</div>
-								: running ? <Skeleton.Input size="small" active style={{ width: 80, minWidth: 80 }} /> : null}
+							{running
+								? <Skeleton.Input size="small" active style={{ width: 80, minWidth: 80 }} />
+								: hasValue ? <div className={styles.askHighlightValue}>{h.value}</div> : null}
 						</div>
 					);
 				})}

@@ -79,7 +79,7 @@ function buildShareText(run: ISupeAskRun) {
 function isImplementationPlaceholder(value?: string | null) {
 	const text = String(value || '').trim().toLowerCase();
 	if (!text) return true;
-	return /calculated in script|computed at runtime|runtime value|from sql|from query|query result|script output/.test(text);
+	return /calculated in script|computed at runtime|calculated at runtime|runtime value|from sql|from query|query result|script output|calculated from |identified from /.test(text);
 }
 
 function formatCompactNumber(value: number, maximumFractionDigits = 0) {
@@ -98,6 +98,11 @@ function formatMetricValue(payload: Record<string, any>) {
 }
 
 function formatMetricDelta(payload: Record<string, any>) {
+	const explicitDelta = String(payload?.deltaText || '').trim();
+	if (explicitDelta) {
+		const explicitLabel = String(payload?.deltaLabel || '').trim();
+		return explicitLabel ? `${explicitDelta} ${explicitLabel}` : explicitDelta;
+	}
 	const delta = Number(payload?.percentDelta);
 	if (!Number.isFinite(delta)) return '';
 	const prefix = delta > 0 ? '+' : '';
@@ -192,7 +197,7 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 				<div className={styles.askMetricLabel}>{artifact.payload?.label}</div>
 				<div className={styles.askMetricValue}>{formatMetricValue(artifact.payload || {})}</div>
 				<div className={styles.askMetricMetaRow}>
-					{artifact.payload?.benchmark ? <span>{artifact.payload?.benchmark}</span> : <span>{deltaText || artifact.title}</span>}
+					<span>{deltaText || artifact.payload?.benchmark || artifact.title}</span>
 					<span className={styles.askMetricTone}>{artifact.payload?.tone || 'neutral'}</span>
 				</div>
 			</div>
@@ -242,7 +247,7 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 
 /* ─────────────────────── Highlights ──────────────────────────── */
 
-function LeadershipHighlights({ highlights }: { highlights: ISupeAskKeyHighlight[] }) {
+function LeadershipHighlights({ highlights, showValues }: { highlights: ISupeAskKeyHighlight[]; showValues: boolean }) {
 	if (!highlights.length) return null;
 	return (
 		<div className={styles.askHighlightsCard}>
@@ -255,7 +260,7 @@ function LeadershipHighlights({ highlights }: { highlights: ISupeAskKeyHighlight
 							<div className={styles.askHighlightHeading}><span>{h.title}</span><span className={`${styles.askHighlightTone} ${toneClassName(h.tone)}`}>{h.tone}</span></div>
 							<div className={styles.askHighlightDetail}>{h.detail}</div>
 						</div>
-						{!isImplementationPlaceholder(h.value) ? <div className={styles.askHighlightValue}>{h.value}</div> : null}
+						{showValues && !isImplementationPlaceholder(h.value) ? <div className={styles.askHighlightValue}>{h.value}</div> : null}
 					</div>
 				))}
 			</div>
@@ -317,7 +322,7 @@ function StructuredAssistantMessage({
 			) : null}
 
 			{/* Key highlights */}
-			<LeadershipHighlights highlights={run.artifact_plan?.key_highlights || []} />
+			<LeadershipHighlights highlights={run.artifact_plan?.key_highlights || []} showValues={run.status === 'completed'} />
 
 			{/* Error */}
 			{run.status === 'failed' && run.error_message ? (

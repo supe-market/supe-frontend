@@ -785,6 +785,19 @@
 	opacity: 1;
 }
 
+.askCodeCanvasCollapsed {
+	width: 48px;
+	min-width: 48px;
+	overflow: hidden;
+
+	.askCodeCanvasHeader {
+		flex-direction: column;
+		padding: 10px 6px;
+		gap: 8px;
+		align-items: center;
+	}
+}
+
 .askCodeCanvasHeader {
 	display: flex;
 	align-items: center;

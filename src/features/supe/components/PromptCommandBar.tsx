@@ -162,7 +162,7 @@ export function PromptCommandBar({
             {!value && typedPlaceholder ? <span className={styles.promptComposerGhost}>{typedPlaceholder}</span> : null}
             {value && autoCompleteTail ? (
               <span className={styles.promptComposerGhost} onMouseDown={(event) => event.preventDefault()} onClick={() => setValue((current) => current + autoCompleteTail)}>
-                {value}
+                <span style={{ visibility: 'hidden' }}>{value}</span>
                 <span className={styles.promptComposerGhostTail}>{autoCompleteTail}</span>
               </span>
             ) : null}

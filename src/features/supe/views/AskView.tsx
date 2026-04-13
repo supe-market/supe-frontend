@@ -9,7 +9,9 @@ import { Button, Empty, Skeleton, Space, Table, Tag, Typography } from 'antd';
 import {
 	CloseOutlined,
 	CodeOutlined,
+	CompressOutlined,
 	CopyOutlined,
+	ExpandOutlined,
 	LoadingOutlined,
 	MessageOutlined,
 	PlusOutlined,
@@ -363,21 +365,40 @@ function CodeCanvas({
 	open: boolean;
 	onClose: () => void;
 }) {
+	const [collapsed, setCollapsed] = useState(false);
+	const canvasClass = [
+		styles.askCodeCanvas,
+		open ? styles.askCodeCanvasOpen : '',
+		open && collapsed ? styles.askCodeCanvasCollapsed : '',
+	].filter(Boolean).join(' ');
+
 	return (
-		<aside className={`${styles.askCodeCanvas} ${open ? styles.askCodeCanvasOpen : ''}`}>
+		<aside className={canvasClass}>
 			<div className={styles.askCodeCanvasHeader}>
-				<span><CodeOutlined /> Generated Code</span>
-				<Button type="text" size="small" icon={<CloseOutlined />} onClick={onClose} />
+				{collapsed
+					? <span><CodeOutlined /></span>
+					: <span><CodeOutlined /> Generated Code</span>
+				}
+				<Space size={2}>
+					<Button type="text" size="small"
+						icon={collapsed ? <ExpandOutlined /> : <CompressOutlined />}
+						onClick={() => setCollapsed((c) => !c)}
+						title={collapsed ? 'Expand code panel' : 'Collapse code panel'}
+					/>
+					<Button type="text" size="small" icon={<CloseOutlined />} onClick={onClose} title="Close code panel" />
+				</Space>
 			</div>
-			<div className={styles.askCodeCanvasBody}>
-				<pre className={styles.askCodeBlock}>{code || 'No code generated yet.'}</pre>
-				{stdout.length ? (
-					<>
-						<div className={styles.askCodeCanvasDivider}>Execution Output</div>
-						<pre className={styles.askLogBlock}>{stdout.join('\n')}</pre>
-					</>
-				) : null}
-			</div>
+			{!collapsed ? (
+				<div className={styles.askCodeCanvasBody}>
+					<pre className={styles.askCodeBlock}>{code || 'No code generated yet.'}</pre>
+					{stdout.length ? (
+						<>
+							<div className={styles.askCodeCanvasDivider}>Execution Output</div>
+							<pre className={styles.askLogBlock}>{stdout.join('\n')}</pre>
+						</>
+					) : null}
+				</div>
+			) : null}
 		</aside>
 	);
 }

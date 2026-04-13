@@ -249,22 +249,27 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 
 /* ─────────────────────── Highlights ──────────────────────────── */
 
-function LeadershipHighlights({ highlights, showValues }: { highlights: ISupeAskKeyHighlight[]; showValues: boolean }) {
+function LeadershipHighlights({ highlights, running }: { highlights: ISupeAskKeyHighlight[]; running: boolean }) {
 	if (!highlights.length) return null;
 	return (
 		<div className={styles.askHighlightsCard}>
 			<div className={styles.askSectionHeader}><span>Key Highlights</span><Typography.Text type="secondary">What needs attention</Typography.Text></div>
 			<div className={styles.askHighlightsList}>
-				{highlights.map((h, i) => (
-					<div key={`${h.title}_${i}`} className={styles.askHighlightRow}>
-						<div className={styles.askHighlightIndex}>{i + 1}</div>
-						<div className={styles.askHighlightBody}>
-							<div className={styles.askHighlightHeading}><span>{h.title}</span><span className={`${styles.askHighlightTone} ${toneClassName(h.tone)}`}>{h.tone}</span></div>
-							<div className={styles.askHighlightDetail}>{h.detail}</div>
+				{highlights.map((h, i) => {
+					const hasValue = !isImplementationPlaceholder(h.value);
+					return (
+						<div key={`${h.title}_${i}`} className={styles.askHighlightRow}>
+							<div className={styles.askHighlightIndex}>{i + 1}</div>
+							<div className={styles.askHighlightBody}>
+								<div className={styles.askHighlightHeading}><span>{h.title}</span><span className={`${styles.askHighlightTone} ${toneClassName(h.tone)}`}>{h.tone}</span></div>
+								<div className={styles.askHighlightDetail}>{h.detail}</div>
+							</div>
+							{hasValue
+								? <div className={styles.askHighlightValue}>{h.value}</div>
+								: running ? <Skeleton.Input size="small" active style={{ width: 80, minWidth: 80 }} /> : null}
 						</div>
-						{showValues && !isImplementationPlaceholder(h.value) ? <div className={styles.askHighlightValue}>{h.value}</div> : null}
-					</div>
-				))}
+					);
+				})}
 			</div>
 		</div>
 	);
@@ -324,7 +329,7 @@ function StructuredAssistantMessage({
 			) : null}
 
 			{/* Key highlights */}
-			<LeadershipHighlights highlights={run.artifact_plan?.key_highlights || []} showValues={!!run.artifact_plan?.key_highlights?.length} />
+			<LeadershipHighlights highlights={run.artifact_plan?.key_highlights || []} running={['queued', 'running'].includes(run.status)} />
 
 			{/* Error */}
 			{run.status === 'failed' && run.error_message ? (
@@ -358,14 +363,15 @@ function StructuredAssistantMessage({
 /* ─────────────── Canvas-style code pane ─────────────────────── */
 
 function CodeCanvas({
-	code, stdout, open, onClose
+	code, stdout, open, collapsed, onClose, onToggleCollapse
 }: {
 	code: string;
 	stdout: string[];
 	open: boolean;
+	collapsed: boolean;
 	onClose: () => void;
+	onToggleCollapse: () => void;
 }) {
-	const [collapsed, setCollapsed] = useState(false);
 	const canvasClass = [
 		styles.askCodeCanvas,
 		open ? styles.askCodeCanvasOpen : '',
@@ -382,7 +388,7 @@ function CodeCanvas({
 				<Space size={2}>
 					<Button type="text" size="small"
 						icon={collapsed ? <ExpandOutlined /> : <CompressOutlined />}
-						onClick={() => setCollapsed((c) => !c)}
+						onClick={onToggleCollapse}
 						title={collapsed ? 'Expand code panel' : 'Collapse code panel'}
 					/>
 					<Button type="text" size="small" icon={<CloseOutlined />} onClick={onClose} title="Close code panel" />
@@ -429,6 +435,7 @@ export function AskView() {
 	const [submitting, setSubmitting] = useState(false);
 	const [composerError, setComposerError] = useState('');
 	const [codeCanvasOpen, setCodeCanvasOpen] = useState(false);
+	const [codeCanvasCollapsed, setCodeCanvasCollapsed] = useState(false);
 
 	const eventSourceRef = useRef<EventSource | null>(null);
 	const hydratedQueryRef = useRef(initialQuery);
@@ -708,7 +715,7 @@ export function AskView() {
 			</div>
 
 			{/* Main workspace — conversation + optional code canvas */}
-			<div className={`${styles.askWorkspaceCanvas} ${codeCanvasOpen ? styles.askWorkspaceCanvasWithCode : ''}`}>
+			<div className={`${styles.askWorkspaceCanvas} ${codeCanvasOpen && !codeCanvasCollapsed ? styles.askWorkspaceCanvasWithCode : ''} ${codeCanvasOpen && codeCanvasCollapsed ? styles.askWorkspaceCanvasWithCodeCollapsed : ''}`}>
 				{/* Conversation pane */}
 				<section className={styles.askConversationPane}>
 					<div ref={conversationBodyRef} className={styles.askConversationBody} onScroll={syncAutoScrollPreference}>
@@ -808,7 +815,9 @@ export function AskView() {
 					code={streamedCode}
 					stdout={selectedStdout}
 					open={codeCanvasOpen}
-					onClose={() => setCodeCanvasOpen(false)}
+					collapsed={codeCanvasCollapsed}
+					onClose={() => { setCodeCanvasOpen(false); setCodeCanvasCollapsed(false); }}
+					onToggleCollapse={() => setCodeCanvasCollapsed((c) => !c)}
 				/>
 			</div>
 		</div>

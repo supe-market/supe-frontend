@@ -5,7 +5,7 @@
  * animation during processing, and a ChatGPT Canvas–style sliding code
  * pane on the right.
  */
-import { Button, Empty, Skeleton, Space, Table, Tag, Typography } from 'antd';
+import { Button, Skeleton, Space, Table, Tag, Typography } from 'antd';
 import {
 	CloseOutlined,
 	CodeOutlined,
@@ -324,7 +324,7 @@ function StructuredAssistantMessage({
 			) : null}
 
 			{/* Key highlights */}
-			<LeadershipHighlights highlights={run.artifact_plan?.key_highlights || []} showValues={run.status === 'completed'} />
+			<LeadershipHighlights highlights={run.artifact_plan?.key_highlights || []} showValues={!!run.artifact_plan?.key_highlights?.length} />
 
 			{/* Error */}
 			{run.status === 'failed' && run.error_message ? (
@@ -412,12 +412,12 @@ export function AskView() {
 	const queryParam = searchParams.get('q') || '';
 
 	/* ── State ─────────────────────────────────────────────────── */
-	const [threads, setThreads] = useState<ISupeAskThread[]>([]);
+	const [, setThreads] = useState<ISupeAskThread[]>([]);
 	const [selectedThreadId, setSelectedThreadId] = useState('');
 	const [messages, setMessages] = useState<ISupeAskMessage[]>([]);
 	const [runs, setRuns] = useState<ISupeAskRun[]>([]);
 	const [artifactsByRun, setArtifactsByRun] = useState<Record<string, ISupeAskArtifact[]>>({});
-	const [eventsByRun, setEventsByRun] = useState<Record<string, ISupeAskEvent[]>>({});
+	const [, setEventsByRun] = useState<Record<string, ISupeAskEvent[]>>({});
 	const [streamedPlanningByRun, setStreamedPlanningByRun] = useState<Record<string, string>>({});
 	const [streamedCodeByRun, setStreamedCodeByRun] = useState<Record<string, string>>({});
 	const [stdoutByRun, setStdoutByRun] = useState<Record<string, string[]>>({});

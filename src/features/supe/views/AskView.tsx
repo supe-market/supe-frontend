@@ -111,6 +111,53 @@ function formatMetricDelta(payload: Record<string, any>) {
 	return `${prefix}${formatCompactNumber(delta, 1)}% vs previous`;
 }
 
+function isTerminalRunStatus(status?: string | null) {
+	return ['completed', 'failed', 'cancelled'].includes(String(status || ''));
+}
+
+function sortAskArtifacts(artifacts: ISupeAskArtifact[]) {
+	return [...artifacts].sort((a, b) => a.ordinal - b.ordinal);
+}
+
+function normalizeRunStreamState(run?: ISupeAskRun | null) {
+	const state = run?.stream_state || {};
+	const thinking = state?.thinking;
+	return {
+		thinking: thinking?.stage || thinking?.message
+			? { stage: String(thinking?.stage || ''), message: String(thinking?.message || '') }
+			: null,
+		planningText: String(state?.planningText || ''),
+		codeBuffer: String(state?.codeBuffer || ''),
+		stdoutTail: Array.isArray(state?.stdoutTail) ? state.stdoutTail.map((line) => String(line || '')) : [],
+		updatedAt: state?.updatedAt ? String(state.updatedAt) : null
+	};
+}
+
+function buildRunStreamMaps(nextRuns: ISupeAskRun[]) {
+	const planning: Record<string, string> = {};
+	const code: Record<string, string> = {};
+	const stdout: Record<string, string[]> = {};
+	const thinking: Record<string, { stage: string; message: string }> = {};
+
+	for (const run of nextRuns) {
+		const stream = normalizeRunStreamState(run);
+		planning[run.id] = stream.planningText;
+		code[run.id] = isTerminalRunStatus(run.status)
+			? String(run.python_code || stream.codeBuffer || '')
+			: String(stream.codeBuffer || run.python_code || '');
+		stdout[run.id] = stream.stdoutTail;
+		if (stream.thinking) thinking[run.id] = stream.thinking;
+	}
+
+	return { planning, code, stdout, thinking };
+}
+
+function extractArtifactLogLines(artifacts: ISupeAskArtifact[]) {
+	const logArtifact = artifacts.find((artifact) => artifact.artifact_type === 'log');
+	const lines = logArtifact?.payload?.lines;
+	return Array.isArray(lines) ? lines.map((line) => String(line || '')) : [];
+}
+
 /* ─────────────────────── Thinking indicator ──────────────────── */
 
 const THINKING_MESSAGES: Record<string, string> = {
@@ -423,7 +470,6 @@ export function AskView() {
 	const [messages, setMessages] = useState<ISupeAskMessage[]>([]);
 	const [runs, setRuns] = useState<ISupeAskRun[]>([]);
 	const [artifactsByRun, setArtifactsByRun] = useState<Record<string, ISupeAskArtifact[]>>({});
-	const [, setEventsByRun] = useState<Record<string, ISupeAskEvent[]>>({});
 	const [streamedPlanningByRun, setStreamedPlanningByRun] = useState<Record<string, string>>({});
 	const [streamedCodeByRun, setStreamedCodeByRun] = useState<Record<string, string>>({});
 	const [stdoutByRun, setStdoutByRun] = useState<Record<string, string[]>>({});
@@ -450,7 +496,11 @@ export function AskView() {
 	/* ── Derived ───────────────────────────────────────────────── */
 	const selectedRun = useMemo(() => runs.find((r) => r.id === activeRunId) || runs[runs.length - 1] || null, [activeRunId, runs]);
 	const selectedArtifacts = selectedRun ? artifactsByRun[selectedRun.id] || [] : [];
-	const selectedStdout = selectedRun ? stdoutByRun[selectedRun.id] || [] : [];
+	const selectedStdout = useMemo(() => {
+		if (!selectedRun) return [];
+		const persisted = isTerminalRunStatus(selectedRun.status) ? extractArtifactLogLines(selectedArtifacts) : [];
+		return persisted.length ? persisted : stdoutByRun[selectedRun.id] || [];
+	}, [selectedArtifacts, selectedRun, stdoutByRun]);
 	const streamedNarrative = selectedRun ? streamedPlanningByRun[selectedRun.id] || '' : '';
 	const streamedCode = selectedRun ? streamedCodeByRun[selectedRun.id] || selectedRun.python_code || '' : '';
 	const thinking = selectedRun ? thinkingByRun[selectedRun.id] || null : null;
@@ -465,6 +515,11 @@ export function AskView() {
 	const updateActiveRunId = (id: string) => { activeRunIdRef.current = id; setActiveRunId(id); };
 	const closeEventStream = () => { if (eventSourceRef.current) { eventSourceRef.current.close(); eventSourceRef.current = null; } };
 	const applyRunPatch = (runId: string, patch: Partial<ISupeAskRun>) => setRuns((cur) => cur.map((r) => (r.id === runId ? { ...r, ...patch } : r)));
+	const upsertRun = (nextRun: ISupeAskRun) => setRuns((cur) => {
+		const index = cur.findIndex((run) => run.id === nextRun.id);
+		if (index === -1) return [...cur, nextRun];
+		return cur.map((run) => (run.id === nextRun.id ? { ...run, ...nextRun } : run));
+	});
 
 	const isNearConversationBottom = () => {
 		const node = conversationBodyRef.current;
@@ -489,22 +544,12 @@ export function AskView() {
 		shouldAutoScrollRef.current = false;
 	};
 
-	const hydrateRunStreams = (nextEvents: Record<string, ISupeAskEvent[]>, nextRuns: ISupeAskRun[]) => {
-		const np: Record<string, string> = {};
-		const nc: Record<string, string> = {};
-		const ns: Record<string, string[]> = {};
-		for (const run of nextRuns) {
-			const evts = nextEvents[run.id] || [];
-			let plan = '', code = run.python_code || '';
-			const out: string[] = [];
-			for (const e of evts) {
-				if (e.eventType === 'run.planning.delta') plan = appendChunk(plan, String(e.payload?.delta || ''));
-				if (e.eventType === 'run.codegen.delta') code = appendChunk(code, String(e.payload?.delta || ''));
-				if (e.eventType === 'run.execution.stdout') { const l = String(e.payload?.line || ''); if (l) out.push(l); }
-			}
-			np[run.id] = plan; nc[run.id] = code; ns[run.id] = out;
-		}
-		setStreamedPlanningByRun(np); setStreamedCodeByRun(nc); setStdoutByRun(ns);
+	const hydrateRunStreams = (nextRuns: ISupeAskRun[]) => {
+		const maps = buildRunStreamMaps(nextRuns);
+		setStreamedPlanningByRun(maps.planning);
+		setStreamedCodeByRun(maps.code);
+		setStdoutByRun(maps.stdout);
+		setThinkingByRun(maps.thinking);
 	};
 
 	/* ── Thread / Run loading ─────────────────────────────────── */
@@ -527,7 +572,30 @@ export function AskView() {
 		source.onmessage = (event) => {
 			try {
 				const p = JSON.parse(event.data) as ISupeAskEvent;
-				setEventsByRun((c) => ({ ...c, [runId]: [...(c[runId] || []).filter((x) => x.id !== p.id), p] }));
+				if (p.eventType === 'run.snapshot') {
+					const snapshotRun = p.payload?.run as ISupeAskRun | undefined;
+					const snapshotArtifacts = Array.isArray(p.payload?.artifacts) ? p.payload.artifacts as ISupeAskArtifact[] : [];
+					if (snapshotRun) {
+						upsertRun(snapshotRun);
+						const stream = normalizeRunStreamState(snapshotRun);
+						setStreamedPlanningByRun((c) => ({ ...c, [runId]: stream.planningText }));
+						setStreamedCodeByRun((c) => ({
+							...c,
+							[runId]: isTerminalRunStatus(snapshotRun.status)
+								? String(snapshotRun.python_code || stream.codeBuffer || '')
+								: String(stream.codeBuffer || snapshotRun.python_code || '')
+						}));
+						setStdoutByRun((c) => ({ ...c, [runId]: stream.stdoutTail }));
+						setThinkingByRun((c) => {
+							const next = { ...c };
+							if (stream.thinking) next[runId] = stream.thinking;
+							else delete next[runId];
+							return next;
+						});
+					}
+					setArtifactsByRun((c) => ({ ...c, [runId]: sortAskArtifacts(snapshotArtifacts) }));
+					return;
+				}
 
 				// Thinking events — immediate feedback
 				if (p.eventType === 'run.thinking') {
@@ -561,25 +629,29 @@ export function AskView() {
 					const art = p.payload.artifact as ISupeAskArtifact;
 					setArtifactsByRun((c) => ({
 						...c,
-						[runId]: [...(c[runId] || []).filter((x) => x.id !== art.id), art].sort((a, b) => a.ordinal - b.ordinal)
+						[runId]: sortAskArtifacts([...(c[runId] || []).filter((x) => x.id !== art.id), art])
 					}));
 					scrollToBottom();
 				}
 				if (p.eventType === 'run.execution.progress') applyRunPatch(runId, { status: 'running' });
 				if (p.eventType === 'run.failed') {
-					applyRunPatch(runId, { status: 'failed', error_message: String(p.payload?.message || 'Run failed') });
+					applyRunPatch(runId, {
+						status: 'failed',
+						error_message: String(p.payload?.message || 'Run failed'),
+						stream_state: { thinking: null }
+					});
 					setThinkingByRun((c) => { const n = { ...c }; delete n[runId]; return n; });
 					closeEventStream();
 					void Promise.allSettled([loadThread(threadId, false), refreshThreadRail(threadId)]);
 				}
 				if (p.eventType === 'run.completed') {
-					applyRunPatch(runId, { status: 'completed' });
+					applyRunPatch(runId, { status: 'completed', stream_state: { thinking: null } });
 					setThinkingByRun((c) => { const n = { ...c }; delete n[runId]; return n; });
 					closeEventStream();
 					void Promise.allSettled([loadThread(threadId, false), refreshThreadRail(threadId)]);
 				}
 				if (p.eventType === 'run.cancelled') {
-					applyRunPatch(runId, { status: 'cancelled' });
+					applyRunPatch(runId, { status: 'cancelled', stream_state: { thinking: null } });
 					setThinkingByRun((c) => { const n = { ...c }; delete n[runId]; return n; });
 					closeEventStream();
 					void Promise.allSettled([loadThread(threadId, false), refreshThreadRail(threadId)]);
@@ -602,8 +674,7 @@ export function AskView() {
 			setMessages(d.messages || []);
 			setRuns(d.runs || []);
 			setArtifactsByRun(d.artifactsByRun || {});
-			setEventsByRun(d.eventsByRun || {});
-			hydrateRunStreams(d.eventsByRun || {}, d.runs || []);
+			hydrateRunStreams(d.runs || []);
 			const nextRun = activeRunIdRef.current && (d.runs || []).some((r: ISupeAskRun) => r.id === activeRunIdRef.current)
 				? activeRunIdRef.current : (d.runs || []).at(-1)?.id || '';
 			updateActiveRunId(nextRun);
@@ -621,7 +692,7 @@ export function AskView() {
 			if (sel) await loadThread(sel, true);
 			else {
 				closeEventStream();
-				setMessages([]); setRuns([]); setArtifactsByRun({}); setEventsByRun({});
+				setMessages([]); setRuns([]); setArtifactsByRun({});
 				setStreamedPlanningByRun({}); setStreamedCodeByRun({}); setStdoutByRun({}); setThinkingByRun({});
 				updateActiveRunId('');
 			}
@@ -644,7 +715,7 @@ export function AskView() {
 			const res = await supeApi.createAskThread({});
 			const id = String(res?.data?.data?.thread?.id || '');
 			updateSelectedThreadId(id);
-			setMessages([]); setRuns([]); setArtifactsByRun({}); setEventsByRun({});
+			setMessages([]); setRuns([]); setArtifactsByRun({});
 			setStreamedPlanningByRun({}); setStreamedCodeByRun({}); setStdoutByRun({}); setThinkingByRun({});
 			updateActiveRunId(''); setCodeCanvasOpen(false);
 			window.dispatchEvent(new CustomEvent(ASK_THREAD_EVENT));
@@ -662,11 +733,11 @@ export function AskView() {
 			const rid = String(res?.data?.data?.run?.id || '');
 			setQuery('');
 			updateActiveRunId(rid);
-			setStreamedPlanningByRun((c) => ({ ...c, [rid]: '' }));
-			setStreamedCodeByRun((c) => ({ ...c, [rid]: '' }));
-			setStdoutByRun((c) => ({ ...c, [rid]: [] }));
-			setThinkingByRun((c) => ({ ...c, [rid]: { stage: 'retrieval', message: 'Starting...' } }));
 			await loadThread(tid, false);
+			setStreamedPlanningByRun((c) => ({ ...c, [rid]: c[rid] || '' }));
+			setStreamedCodeByRun((c) => ({ ...c, [rid]: c[rid] || '' }));
+			setStdoutByRun((c) => ({ ...c, [rid]: c[rid] || [] }));
+			setThinkingByRun((c) => ({ ...c, [rid]: c[rid] || { stage: 'retrieval', message: 'Starting...' } }));
 			await refreshThreadRail(tid);
 			connectRunEvents(rid, tid);
 			scrollToBottom(true);

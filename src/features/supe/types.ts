@@ -154,6 +154,13 @@ export interface ISupeAskRun {
 	python_code?: string | null;
 	retrieval_context?: Record<string, any> | null;
 	artifact_plan?: ISupeAskArtifactPlan | null;
+	stream_state?: {
+		thinking?: { stage: string; message: string } | null;
+		planningText?: string;
+		codeBuffer?: string;
+		stdoutTail?: string[];
+		updatedAt?: string | null;
+	} | null;
 	error_message?: string | null;
 	created_at: string;
 	updated_at: string;
@@ -161,7 +168,7 @@ export interface ISupeAskRun {
 }
 
 export interface ISupeAskEvent {
-	id: number;
+	id: string | number;
 	eventType: string;
 	payload: Record<string, any>;
 	createdAt?: string | null;

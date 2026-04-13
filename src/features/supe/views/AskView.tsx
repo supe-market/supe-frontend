@@ -67,7 +67,16 @@ function toneClassName(tone: string) {
 	const n = tone.toLowerCase();
 	if (n.includes('easy') || n.includes('positive') || n.includes('good')) return styles.askHighlightTonePositive;
 	if (n.includes('medium') || n.includes('warning')) return styles.askHighlightToneWarning;
+	if (n.includes('neutral') || n.includes('stable') || n.includes('flat')) return styles.askHighlightToneNeutral;
 	return styles.askHighlightToneCritical;
+}
+
+function toneCellClassName(tone: string) {
+	const n = tone.toLowerCase();
+	if (n.includes('easy') || n.includes('positive') || n.includes('good')) return styles.askHighlightCellPositive;
+	if (n.includes('medium') || n.includes('warning')) return styles.askHighlightCellWarning;
+	if (n.includes('neutral') || n.includes('stable') || n.includes('flat')) return styles.askHighlightCellNeutral;
+	return styles.askHighlightCellCritical;
 }
 
 function extractHighlightItems(artifacts: ISupeAskArtifact[]): ISupeAskHighlightsItem[] {
@@ -127,6 +136,34 @@ function isTerminalRunStatus(status?: string | null) {
 
 function sortAskArtifacts(artifacts: ISupeAskArtifact[]) {
 	return [...artifacts].sort((a, b) => a.ordinal - b.ordinal);
+}
+
+function partitionArtifactsForOverview(artifacts: ISupeAskArtifact[]) {
+	const firstOverviewIndex = artifacts.findIndex((artifact) => ['metric', 'highlights'].includes(artifact.artifact_type));
+	if (firstOverviewIndex === -1) {
+		return {
+			leadingArtifacts: artifacts,
+			overviewMetrics: [] as ISupeAskArtifact[],
+			overviewHighlights: null as ISupeAskArtifact | null,
+			trailingArtifacts: [] as ISupeAskArtifact[]
+		};
+	}
+
+	let groupEnd = firstOverviewIndex;
+	while (groupEnd < artifacts.length && ['metric', 'highlights'].includes(artifacts[groupEnd].artifact_type)) {
+		groupEnd += 1;
+	}
+
+	const leadingArtifacts = artifacts.slice(0, firstOverviewIndex);
+	const overviewGroup = artifacts.slice(firstOverviewIndex, groupEnd);
+	const overviewMetrics = overviewGroup.filter((artifact) => artifact.artifact_type === 'metric');
+	const overviewHighlights = overviewGroup.find((artifact) => artifact.artifact_type === 'highlights') || null;
+	const trailingArtifacts = [
+		...overviewGroup.filter((artifact) => !['metric', 'highlights'].includes(artifact.artifact_type)),
+		...artifacts.slice(groupEnd),
+	];
+
+	return { leadingArtifacts, overviewMetrics, overviewHighlights, trailingArtifacts };
 }
 
 function normalizeRunStreamState(run?: ISupeAskRun | null) {
@@ -190,7 +227,7 @@ function ThinkingIndicator({ stage, message }: { stage: string; message?: string
 
 /* ─────────────────────── Artifact renderer ───────────────────── */
 
-function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
+function AskArtifactRenderer({ artifact, variant = 'default' }: { artifact: ISupeAskArtifact; variant?: 'default' | 'overview' }) {
 	if (artifact.artifact_type === 'markdown') {
 		return (
 			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
@@ -202,12 +239,12 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 	if (artifact.artifact_type === 'metric') {
 		const deltaText = formatMetricDelta(artifact.payload || {});
 		return (
-			<div className={styles.askMetricArtifact}>
+			<div className={`${styles.askMetricArtifact} ${variant === 'overview' ? styles.askMetricArtifactHero : ''}`}>
 				<div className={styles.askMetricLabel}>{artifact.payload?.label}</div>
 				<div className={styles.askMetricValue}>{formatMetricValue(artifact.payload || {})}</div>
 				<div className={styles.askMetricMetaRow}>
 					<span>{deltaText || artifact.payload?.benchmark || artifact.title}</span>
-					<span className={styles.askMetricTone}>{artifact.payload?.tone || 'neutral'}</span>
+					<span className={`${styles.askMetricTone} ${toneClassName(String(artifact.payload?.tone || 'neutral'))}`}>{artifact.payload?.tone || 'neutral'}</span>
 				</div>
 			</div>
 		);
@@ -249,23 +286,21 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 			return <div className={styles.askArtifactFallback}><Typography.Text type="secondary">No highlights were emitted.</Typography.Text></div>;
 		}
 		return (
-			<div className={styles.askHighlightsCard}>
+			<div className={styles.askHighlightsSection}>
 				<div className={styles.askSectionHeader}>
 					<span>{artifact.title || 'Key Highlights'}</span>
 					{artifact.payload?.subtitle ? <Typography.Text type="secondary">{String(artifact.payload.subtitle)}</Typography.Text> : null}
 				</div>
-				<div className={styles.askHighlightsList}>
+				<div className={styles.askHighlightsGrid}>
 					{items.map((item, index) => (
-						<div key={`${artifact.id}_${index}`} className={styles.askHighlightRow}>
-							<div className={styles.askHighlightIndex}>{index + 1}</div>
-							<div className={styles.askHighlightBody}>
-								<div className={styles.askHighlightHeading}>
-									<span>{item.title}</span>
-									<span className={`${styles.askHighlightTone} ${toneClassName(item.tone)}`}>{item.tone}</span>
-								</div>
-								{item.detail ? <div className={styles.askHighlightDetail}>{item.detail}</div> : null}
+						<div key={`${artifact.id}_${index}`} className={`${styles.askHighlightCell} ${toneCellClassName(item.tone)}`}>
+							<div className={styles.askHighlightCellHeader}>
+								<div className={styles.askHighlightCellIndex}>{index + 1}</div>
+								<div className={styles.askHighlightCellTitle}>{item.title}</div>
+								<span className={`${styles.askHighlightTone} ${toneClassName(item.tone)}`}>{item.tone}</span>
 							</div>
-							{item.value ? <div className={styles.askHighlightValue}>{item.value}</div> : null}
+							{item.detail ? <div className={styles.askHighlightCellDetail}>{item.detail}</div> : null}
+							{item.value ? <div className={styles.askHighlightCellValue}>{item.value}</div> : null}
 						</div>
 					))}
 				</div>
@@ -315,6 +350,7 @@ function StructuredAssistantMessage({
 	const followUps = takeSuggestedQuestions(run.artifact_plan);
 	const workingAssumptions = takeWorkingAssumptions(run.artifact_plan);
 	const shareText = buildShareText(run, artifacts);
+	const { leadingArtifacts, overviewMetrics, overviewHighlights, trailingArtifacts } = partitionArtifactsForOverview(artifacts);
 
 	return (
 		<div className={styles.askAssistantResponse}>
@@ -329,11 +365,28 @@ function StructuredAssistantMessage({
 			<WorkingAssumptions items={workingAssumptions} />
 			{run.assistant_summary ? <div className={styles.askSummaryText}>{run.assistant_summary}</div> : null}
 
-			{/* Inline artifacts — tables, metrics, charts */}
-			{artifacts.length ? (
+			{leadingArtifacts.length ? (
 				<div className={styles.askInlineArtifactStack}>
-					{artifacts.map((a) => <AskArtifactRenderer key={a.id} artifact={a} />)}
+					{leadingArtifacts.map((artifact) => <AskArtifactRenderer key={artifact.id} artifact={artifact} />)}
 				</div>
+			) : null}
+
+			{overviewMetrics.length ? (
+				<div className={styles.askOverviewMetricsRail}>
+					{overviewMetrics.map((artifact) => (
+						<AskArtifactRenderer key={artifact.id} artifact={artifact} variant="overview" />
+					))}
+				</div>
+			) : null}
+
+			{trailingArtifacts.length ? (
+				<div className={styles.askInlineArtifactStack}>
+					{trailingArtifacts.map((artifact) => <AskArtifactRenderer key={artifact.id} artifact={artifact} />)}
+				</div>
+			) : null}
+
+			{overviewHighlights ? (
+				<AskArtifactRenderer key={overviewHighlights.id} artifact={overviewHighlights} />
 			) : null}
 
 			{/* Error */}

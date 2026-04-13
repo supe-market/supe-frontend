@@ -479,7 +479,14 @@ export function AskView() {
 	const [, setThreads] = useState<ISupeAskThread[]>([]);
 	const [selectedThreadId, setSelectedThreadId] = useState('');
 	const [messages, setMessages] = useState<ISupeAskMessage[]>([]);
-	const [runs, setRuns] = useState<ISupeAskRun[]>([]);
+	const [runs, setRunsState] = useState<ISupeAskRun[]>([]);
+	const setRuns = (next: ISupeAskRun[] | ((cur: ISupeAskRun[]) => ISupeAskRun[])) => {
+		setRunsState((cur) => {
+			const resolved = typeof next === 'function' ? next(cur) : next;
+			runsRef.current = resolved;
+			return resolved;
+		});
+	};
 	const [artifactsByRun, setArtifactsByRun] = useState<Record<string, ISupeAskArtifact[]>>({});
 	const [streamedPlanningByRun, setStreamedPlanningByRun] = useState<Record<string, string>>({});
 	const [streamedCodeByRun, setStreamedCodeByRun] = useState<Record<string, string>>({});
@@ -495,6 +502,7 @@ export function AskView() {
 	const [codeCanvasCollapsed, setCodeCanvasCollapsed] = useState(false);
 
 	const eventSourceRef = useRef<EventSource | null>(null);
+	const runsRef = useRef<ISupeAskRun[]>([]);
 	const hydratedQueryRef = useRef(initialQuery);
 	const bootstrapRunRef = useRef('');
 	const selectedThreadIdRef = useRef('');
@@ -678,7 +686,7 @@ export function AskView() {
 			} catch { /* ignore malformed keepalive */ }
 		};
 		source.onerror = () => {
-			const r = runs.find((x) => x.id === runId);
+			const r = runsRef.current.find((x) => x.id === runId);
 			if (!r || ['completed', 'failed', 'cancelled'].includes(r.status)) closeEventStream();
 		};
 	};

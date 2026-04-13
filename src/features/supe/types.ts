@@ -105,7 +105,7 @@ export interface ISupeAskReportSection {
 	subtitle: string;
 }
 
-export interface ISupeAskKeyHighlight {
+export interface ISupeAskHighlightsItem {
 	title: string;
 	detail: string;
 	value: string;
@@ -119,7 +119,6 @@ export interface ISupeAskArtifactPlan {
 		reason: string;
 	}>;
 	report_sections?: ISupeAskReportSection[];
-	key_highlights?: ISupeAskKeyHighlight[];
 	working_assumptions?: string[];
 	suggested_next_questions?: string[];
 }
@@ -136,7 +135,7 @@ export interface ISupeAskMessage {
 export interface ISupeAskArtifact {
 	id: string;
 	run_id: string;
-	artifact_type: 'markdown' | 'metric' | 'table' | 'plotly' | 'log' | string;
+	artifact_type: 'markdown' | 'metric' | 'table' | 'plotly' | 'log' | 'highlights' | string;
 	title: string;
 	payload: Record<string, any>;
 	ordinal: number;

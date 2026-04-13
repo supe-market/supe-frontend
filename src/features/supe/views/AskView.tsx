@@ -27,7 +27,7 @@ import type {
 	ISupeAskArtifact,
 	ISupeAskArtifactPlan,
 	ISupeAskEvent,
-	ISupeAskKeyHighlight,
+	ISupeAskHighlightsItem,
 	ISupeAskMessage,
 	ISupeAskRun,
 	ISupeAskThread
@@ -70,17 +70,28 @@ function toneClassName(tone: string) {
 	return styles.askHighlightToneCritical;
 }
 
-function buildShareText(run: ISupeAskRun) {
-	const lines = [run.title || run.question, run.assistant_summary || ''];
-	const highlights = Array.isArray(run.artifact_plan?.key_highlights) ? run.artifact_plan?.key_highlights : [];
-	for (const h of highlights || []) lines.push(`- ${h.title}: ${h.value}`);
-	return lines.filter(Boolean).join('\n');
+function extractHighlightItems(artifacts: ISupeAskArtifact[]): ISupeAskHighlightsItem[] {
+	const highlightsArtifact = artifacts.find((artifact) => artifact.artifact_type === 'highlights');
+	const items = highlightsArtifact?.payload?.items;
+	if (!Array.isArray(items)) return [];
+	return items
+		.filter((item): item is Record<string, any> => Boolean(item && typeof item === 'object'))
+		.map((item) => ({
+			title: String(item.title || '').trim(),
+			detail: String(item.detail || '').trim(),
+			value: String(item.value || '').trim(),
+			tone: String(item.tone || 'neutral').trim() || 'neutral'
+		}))
+		.filter((item) => item.title || item.detail || item.value);
 }
 
-function isImplementationPlaceholder(value?: string | null) {
-	const text = String(value || '').trim().toLowerCase();
-	if (!text) return true;
-	return /calculated in script|computed at runtime|calculated at runtime|runtime value|from sql|from query|query result|script output|calculated from |identified from /.test(text);
+function buildShareText(run: ISupeAskRun, artifacts: ISupeAskArtifact[]) {
+	const lines = [run.title || run.question, run.assistant_summary || ''];
+	for (const item of extractHighlightItems(artifacts)) {
+		const body = item.value || item.detail;
+		lines.push(body ? `- ${item.title}: ${body}` : `- ${item.title}`);
+	}
+	return lines.filter(Boolean).join('\n');
 }
 
 function formatCompactNumber(value: number, maximumFractionDigits = 0) {
@@ -232,6 +243,35 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 			</div>
 		);
 	}
+	if (artifact.artifact_type === 'highlights') {
+		const items = extractHighlightItems([artifact]);
+		if (!items.length) {
+			return <div className={styles.askArtifactFallback}><Typography.Text type="secondary">No highlights were emitted.</Typography.Text></div>;
+		}
+		return (
+			<div className={styles.askHighlightsCard}>
+				<div className={styles.askSectionHeader}>
+					<span>{artifact.title || 'Key Highlights'}</span>
+					{artifact.payload?.subtitle ? <Typography.Text type="secondary">{String(artifact.payload.subtitle)}</Typography.Text> : null}
+				</div>
+				<div className={styles.askHighlightsList}>
+					{items.map((item, index) => (
+						<div key={`${artifact.id}_${index}`} className={styles.askHighlightRow}>
+							<div className={styles.askHighlightIndex}>{index + 1}</div>
+							<div className={styles.askHighlightBody}>
+								<div className={styles.askHighlightHeading}>
+									<span>{item.title}</span>
+									<span className={`${styles.askHighlightTone} ${toneClassName(item.tone)}`}>{item.tone}</span>
+								</div>
+								{item.detail ? <div className={styles.askHighlightDetail}>{item.detail}</div> : null}
+							</div>
+							{item.value ? <div className={styles.askHighlightValue}>{item.value}</div> : null}
+						</div>
+					))}
+				</div>
+			</div>
+		);
+	}
 	if (artifact.artifact_type === 'log') {
 		return (
 			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
@@ -241,37 +281,6 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 		);
 	}
 	return <div className={styles.askArtifactFallback}><Typography.Text type="secondary">Unsupported: {artifact.artifact_type}</Typography.Text></div>;
-}
-
-/* ─────────────────────── Highlights ──────────────────────────── */
-
-function LeadershipHighlights({ highlights, running }: { highlights: ISupeAskKeyHighlight[]; running: boolean }) {
-	if (!highlights.length) return null;
-	return (
-		<div className={styles.askHighlightsCard}>
-			<div className={styles.askSectionHeader}><span>Key Highlights</span><Typography.Text type="secondary">What needs attention</Typography.Text></div>
-			<div className={styles.askHighlightsList}>
-				{highlights.map((h, i) => {
-					const hasValue = !running && !isImplementationPlaceholder(h.value);
-					return (
-						<div key={`${h.title}_${i}`} className={styles.askHighlightRow}>
-							<div className={styles.askHighlightIndex}>{i + 1}</div>
-							<div className={styles.askHighlightBody}>
-								<div className={styles.askHighlightHeading}>
-									<span>{h.title}</span>
-									{!running && <span className={`${styles.askHighlightTone} ${toneClassName(h.tone)}`}>{h.tone}</span>}
-								</div>
-								<div className={styles.askHighlightDetail}>{h.detail}</div>
-							</div>
-							{running
-								? <Skeleton.Input size="small" active style={{ width: 80, minWidth: 80 }} />
-								: hasValue ? <div className={styles.askHighlightValue}>{h.value}</div> : null}
-						</div>
-					);
-				})}
-			</div>
-		</div>
-	);
 }
 
 function WorkingAssumptions({ items }: { items: string[] }) {
@@ -305,7 +314,7 @@ function StructuredAssistantMessage({
 	const isLive = ['queued', 'running'].includes(run.status);
 	const followUps = takeSuggestedQuestions(run.artifact_plan);
 	const workingAssumptions = takeWorkingAssumptions(run.artifact_plan);
-	const shareText = buildShareText(run);
+	const shareText = buildShareText(run, artifacts);
 
 	return (
 		<div className={styles.askAssistantResponse}>
@@ -326,9 +335,6 @@ function StructuredAssistantMessage({
 					{artifacts.map((a) => <AskArtifactRenderer key={a.id} artifact={a} />)}
 				</div>
 			) : null}
-
-			{/* Key highlights */}
-			<LeadershipHighlights highlights={run.artifact_plan?.key_highlights || []} running={['queued', 'running'].includes(run.status)} />
 
 			{/* Error */}
 			{run.status === 'failed' && run.error_message ? (

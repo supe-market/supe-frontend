@@ -20,8 +20,8 @@ import {
 } from '@ant-design/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import supeApi from '../api';
+import { PlotlyArtifact } from '../components/PlotlyArtifact';
 import { LEADERSHIP_PROMPT_SUGGESTIONS, PromptCommandBar } from '../components/PromptCommandBar';
 import type {
 	ISupeAskArtifact,
@@ -34,7 +34,6 @@ import type {
 } from '../types';
 import styles from '../index.module.scss';
 
-const ASK_CHART_COLORS = ['#1d4ed8', '#0f766e', '#b45309', '#be123c', '#7c3aed', '#0369a1'];
 const ASK_THREAD_EVENT = 'supe-ask-threads-updated';
 
 /* ─────────────────────── Utility helpers ─────────────────────── */
@@ -178,56 +177,6 @@ function ThinkingIndicator({ stage, message }: { stage: string; message?: string
 	);
 }
 
-/* ─────────────────────── Chart renderer ──────────────────────── */
-
-function AskChart({ artifact }: { artifact: ISupeAskArtifact }) {
-	const payload = artifact.payload || {};
-	const traces = Array.isArray(payload?.data) ? payload.data : [];
-	const chartRowOrder: string[] = [];
-	const chartRowMap = new Map<string, Record<string, number | string | null>>();
-	const usedSeriesKeys = new Set<string>();
-	const chartSeries = traces.reduce<Array<{ color: string; dataKey: string; name: string; type: 'bar' | 'line' }>>(
-		(acc, trace, i) => {
-			const xValues = Array.isArray(trace?.x) ? trace.x : [];
-			const yValues = Array.isArray(trace?.y) ? trace.y : [];
-			const len = Math.max(xValues.length, yValues.length);
-			if (!len) return acc;
-			const baseName = String(trace?.name || `Series ${i + 1}`);
-			let dataKey = baseName;
-			let dup = 2;
-			while (usedSeriesKeys.has(dataKey)) { dataKey = `${baseName} ${dup}`; dup++; }
-			usedSeriesKeys.add(dataKey);
-			for (let j = 0; j < len; j++) {
-				const label = String(xValues[j] ?? j + 1);
-				if (!chartRowMap.has(label)) { chartRowMap.set(label, { name: label }); chartRowOrder.push(label); }
-				const v = Number(yValues[j] ?? null);
-				chartRowMap.get(label)![dataKey] = Number.isFinite(v) ? v : null;
-			}
-			acc.push({ color: ASK_CHART_COLORS[i % ASK_CHART_COLORS.length], dataKey, name: baseName, type: trace?.type === 'bar' ? 'bar' : 'line' });
-			return acc;
-		}, []);
-	const chartRows = chartRowOrder.map((l) => chartRowMap.get(l) || { name: l });
-	if (!chartRows.length || !chartSeries.length) {
-		return <div className={styles.askArtifactFallback}><Typography.Text type="secondary">Chart could not be rendered.</Typography.Text></div>;
-	}
-	return (
-		<div className={styles.askChartShell}>
-			<ResponsiveContainer width="100%" height={260}>
-				<ComposedChart data={chartRows}>
-					<CartesianGrid strokeDasharray="3 3" />
-					<XAxis dataKey="name" tickLine={false} axisLine={false} />
-					<YAxis tickLine={false} axisLine={false} />
-					<Tooltip /><Legend />
-					{chartSeries.map((s) => s.type === 'bar'
-						? <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name} fill={s.color} radius={[6, 6, 0, 0]} />
-						: <Line key={s.dataKey} type="monotone" dataKey={s.dataKey} name={s.name} stroke={s.color} strokeWidth={2} dot={false} />
-					)}
-				</ComposedChart>
-			</ResponsiveContainer>
-		</div>
-	);
-}
-
 /* ─────────────────────── Artifact renderer ───────────────────── */
 
 function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
@@ -279,7 +228,7 @@ function AskArtifactRenderer({ artifact }: { artifact: ISupeAskArtifact }) {
 		return (
 			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
 				<div className={styles.askArtifactHeader}>{artifact.title}</div>
-				<AskChart artifact={artifact} />
+				<PlotlyArtifact artifact={artifact} />
 			</div>
 		);
 	}

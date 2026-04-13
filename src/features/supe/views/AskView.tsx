@@ -454,6 +454,10 @@ export function AskView() {
 	/* ── Derived ───────────────────────────────────────────────── */
 	const selectedRun = useMemo(() => runs.find((r) => r.id === activeRunId) || runs[runs.length - 1] || null, [activeRunId, runs]);
 	const selectedArtifacts = selectedRun ? artifactsByRun[selectedRun.id] || [] : [];
+	const selectedRunHasMessage = useMemo(
+		() => Boolean(selectedRun && messages.some((message) => String(message.run_id || '') === selectedRun.id)),
+		[messages, selectedRun]
+	);
 	const selectedStdout = useMemo(() => {
 		if (!selectedRun) return [];
 		const persisted = isTerminalRunStatus(selectedRun.status) ? extractArtifactLogLines(selectedArtifacts) : [];
@@ -552,6 +556,10 @@ export function AskView() {
 						});
 					}
 					setArtifactsByRun((c) => ({ ...c, [runId]: sortAskArtifacts(snapshotArtifacts) }));
+					if (snapshotRun && isTerminalRunStatus(snapshotRun.status)) {
+						closeEventStream();
+						void Promise.allSettled([loadThread(threadId, false), refreshThreadRail(threadId)]);
+					}
 					return;
 				}
 
@@ -783,12 +791,13 @@ export function AskView() {
 								})}
 
 								{/* Streaming bubble for active run not yet in message history */}
-								{selectedRun && ['queued', 'running'].includes(selectedRun.status)
-									&& !messages.some((m) => m.run_id === selectedRun.id) ? (
+								{selectedRun && !selectedRunHasMessage ? (
 									<div className={`${styles.askMessageCard} ${styles.askMessageCardAssistant}`}>
 										<div className={styles.askMessageMeta}>
 											<span>Supe Ask</span>
-											<Tag color="processing" icon={<LoadingOutlined />}>live</Tag>
+											{['queued', 'running'].includes(selectedRun.status)
+												? <Tag color="processing" icon={<LoadingOutlined />}>live</Tag>
+												: null}
 										</div>
 										<StructuredAssistantMessage
 											run={selectedRun}

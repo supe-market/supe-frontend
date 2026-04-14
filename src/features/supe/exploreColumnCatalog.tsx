@@ -197,6 +197,14 @@ export function getExploreColumns(entityType: ExploreEntityType, timeSuffix: str
 				align: 'center',
 				render: (row) => <span className={styles.exploreMutedText}>{formatDateTime(row.lastActive)}</span>,
 				sortValue: (row) => row.lastActive || ''
+			},
+			{
+				key: 'code',
+				label: 'System Code',
+				category: 'Context',
+				defaultVisible: false,
+				render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>,
+				sortValue: (row) => row.code
 			}
 		];
 	}
@@ -246,7 +254,8 @@ export function getExploreColumns(entityType: ExploreEntityType, timeSuffix: str
 			{ key: 'coveragePct', label: 'Coverage %', category: 'Activity', defaultVisible: false, align: 'center', render: (row) => `${formatNumber(row.coveragePct, 0)}%`, sortValue: (row) => Number(row.coveragePct || 0) },
 			{ key: 'realizationPct', label: '% Realized', category: 'Activity', defaultVisible: true, align: 'center', render: (row) => `${formatNumber(row.realizationPct, 0)}%`, sortValue: (row) => Number(row.realizationPct || 0) },
 			{ key: 'salesman', label: 'Salesman', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.salesman || '-'}</span>, sortValue: (row) => row.salesman },
-			{ key: 'distributor', label: 'Distributor', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.distributor || '-'}</span>, sortValue: (row) => row.distributor }
+			{ key: 'distributor', label: 'Distributor', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.distributor || '-'}</span>, sortValue: (row) => row.distributor },
+			{ key: 'code', label: 'System Code', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>, sortValue: (row) => row.code }
 		];
 	}
 
@@ -282,6 +291,7 @@ export function getExploreColumns(entityType: ExploreEntityType, timeSuffix: str
 		{ key: 'activeOutlets', label: 'Active Outlets', category: 'Network', defaultVisible: true, align: 'center', render: (row) => formatNumber(row.activeOutlets), sortValue: (row) => Number(row.activeOutlets || 0) },
 		{ key: 'outstanding', label: 'Outstanding', category: 'Finance', defaultVisible: true, align: 'right', render: (row) => formatCurrency(row.outstanding), sortValue: (row) => Number(row.outstanding || 0), aggregate: 'sum' },
 		{ key: 'fulfilmentPct', label: 'Fulfilment %', category: 'Operations', defaultVisible: false, align: 'center', render: (row) => `${formatNumber(row.fulfilmentPct, 1)}%`, sortValue: (row) => Number(row.fulfilmentPct || 0) },
-		{ key: 'damagePct', label: 'Damage %', category: 'Operations', defaultVisible: false, align: 'center', render: (row) => `${formatNumber(row.damagePct, 1)}%`, sortValue: (row) => Number(row.damagePct || 0) }
+		{ key: 'damagePct', label: 'Damage %', category: 'Operations', defaultVisible: false, align: 'center', render: (row) => `${formatNumber(row.damagePct, 1)}%`, sortValue: (row) => Number(row.damagePct || 0) },
+		{ key: 'code', label: 'System Code', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>, sortValue: (row) => row.code }
 	];
 }

@@ -200,9 +200,9 @@ export function getExploreColumns(entityType: ExploreEntityType, timeSuffix: str
 			},
 			{
 				key: 'code',
-				label: 'System Code',
-				category: 'Context',
-				defaultVisible: false,
+				label: 'Employee Code',
+				category: 'Identity',
+				defaultVisible: true,
 				render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>,
 				sortValue: (row) => row.code
 			}
@@ -212,6 +212,7 @@ export function getExploreColumns(entityType: ExploreEntityType, timeSuffix: str
 	if (entityType === 'retailer') {
 		return [
 			{ key: 'name', label: 'Retailer Name', category: 'Identity', defaultVisible: true, render: (row) => <span>{row.name}</span>, sortValue: (row) => row.name },
+			{ key: 'code', label: 'Outlet Code', category: 'Identity', defaultVisible: true, render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>, sortValue: (row) => row.code },
 			{ key: 'lastOrderDate', label: 'Last Order', category: 'Orders', defaultVisible: true, align: 'center', render: (row) => row.lastOrderDate || '-', sortValue: (row) => row.lastOrderDate || '' },
 			{ key: 'daysSinceOrder', label: 'Days Since', category: 'Orders', defaultVisible: true, align: 'center', render: (row) => `${formatNumber(row.dormancyDays)}d`, sortValue: (row) => Number(row.dormancyDays || 0) },
 			{ key: 'lastBillValue', label: 'Last Bill', category: 'Orders', defaultVisible: false, align: 'right', render: (row) => formatCurrency(row.lastBillValue), sortValue: (row) => Number(row.lastBillValue || 0) },
@@ -253,15 +254,16 @@ export function getExploreColumns(entityType: ExploreEntityType, timeSuffix: str
 			{ key: 'activeOutlets', label: 'Active / Total', category: 'Activity', defaultVisible: true, align: 'center', render: (row) => `${formatNumber(row.activeOutlets)}/${formatNumber(row.totalOutlets)}`, sortValue: (row) => Number(row.activeOutlets || 0) },
 			{ key: 'coveragePct', label: 'Coverage %', category: 'Activity', defaultVisible: false, align: 'center', render: (row) => `${formatNumber(row.coveragePct, 0)}%`, sortValue: (row) => Number(row.coveragePct || 0) },
 			{ key: 'realizationPct', label: '% Realized', category: 'Activity', defaultVisible: true, align: 'center', render: (row) => `${formatNumber(row.realizationPct, 0)}%`, sortValue: (row) => Number(row.realizationPct || 0) },
+			{ key: 'code', label: 'Beat Code', category: 'Identity', defaultVisible: true, render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>, sortValue: (row) => row.code },
 			{ key: 'salesman', label: 'Salesman', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.salesman || '-'}</span>, sortValue: (row) => row.salesman },
-			{ key: 'distributor', label: 'Distributor', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.distributor || '-'}</span>, sortValue: (row) => row.distributor },
-			{ key: 'code', label: 'System Code', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>, sortValue: (row) => row.code }
+			{ key: 'distributor', label: 'Distributor', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.distributor || '-'}</span>, sortValue: (row) => row.distributor }
 		];
 	}
 
 	if (entityType === 'sku') {
 		return [
 			{ key: 'skuName', label: 'SKU', category: 'Identity', defaultVisible: true, render: (row) => <span>{row.skuName}</span>, sortValue: (row) => row.skuName },
+			{ key: 'code', label: 'SKU Code', category: 'Identity', defaultVisible: true, render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>, sortValue: (row) => row.code },
 			{ key: 'category', label: 'Brand', category: 'Identity', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.category || '-'}</span>, sortValue: (row) => row.category },
 			{ key: 'revenueMTD', label: `Revenue ${timeSuffix}`, category: 'Revenue', defaultVisible: true, align: 'right', render: (row) => formatCurrency(row.revenueMTD), sortValue: (row) => Number(row.revenueMTD || 0), aggregate: 'sum' },
 			{ key: 'unitsMTD', label: `Units ${timeSuffix}`, category: 'Revenue', defaultVisible: true, align: 'right', render: (row) => formatNumber(row.unitsMTD), sortValue: (row) => Number(row.unitsMTD || 0), aggregate: 'sum' },
@@ -285,13 +287,13 @@ export function getExploreColumns(entityType: ExploreEntityType, timeSuffix: str
 
 	return [
 		{ key: 'distributorName', label: 'Distributor', category: 'Identity', defaultVisible: true, render: (row) => <span>{row.distributorName}</span>, sortValue: (row) => row.distributorName },
+		{ key: 'code', label: 'Distributor Code', category: 'Identity', defaultVisible: true, render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>, sortValue: (row) => row.code },
 		{ key: 'revenueMTD', label: `Revenue ${timeSuffix}`, category: 'Revenue', defaultVisible: true, align: 'right', render: (row) => formatCurrency(row.revenueMTD), sortValue: (row) => Number(row.revenueMTD || 0), aggregate: 'sum' },
 		{ key: 'ordersMTD', label: `Orders ${timeSuffix}`, category: 'Revenue', defaultVisible: false, align: 'right', render: (row) => formatNumber(row.ordersMTD), sortValue: (row) => Number(row.ordersMTD || 0), aggregate: 'sum' },
 		{ key: 'activeSalesmen', label: 'Active Salesmen', category: 'Network', defaultVisible: true, align: 'center', render: (row) => formatNumber(row.activeSalesmen), sortValue: (row) => Number(row.activeSalesmen || 0) },
 		{ key: 'activeOutlets', label: 'Active Outlets', category: 'Network', defaultVisible: true, align: 'center', render: (row) => formatNumber(row.activeOutlets), sortValue: (row) => Number(row.activeOutlets || 0) },
 		{ key: 'outstanding', label: 'Outstanding', category: 'Finance', defaultVisible: true, align: 'right', render: (row) => formatCurrency(row.outstanding), sortValue: (row) => Number(row.outstanding || 0), aggregate: 'sum' },
 		{ key: 'fulfilmentPct', label: 'Fulfilment %', category: 'Operations', defaultVisible: false, align: 'center', render: (row) => `${formatNumber(row.fulfilmentPct, 1)}%`, sortValue: (row) => Number(row.fulfilmentPct || 0) },
-		{ key: 'damagePct', label: 'Damage %', category: 'Operations', defaultVisible: false, align: 'center', render: (row) => `${formatNumber(row.damagePct, 1)}%`, sortValue: (row) => Number(row.damagePct || 0) },
-		{ key: 'code', label: 'System Code', category: 'Context', defaultVisible: false, render: (row) => <span className={styles.exploreMutedText}>{row.code || '-'}</span>, sortValue: (row) => row.code }
+		{ key: 'damagePct', label: 'Damage %', category: 'Operations', defaultVisible: false, align: 'center', render: (row) => `${formatNumber(row.damagePct, 1)}%`, sortValue: (row) => Number(row.damagePct || 0) }
 	];
 }

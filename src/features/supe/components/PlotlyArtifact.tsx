@@ -13,6 +13,13 @@ type PlotlyPayload = {
 
 const DEFAULT_PLOT_HEIGHT = 280;
 
+const getChartColorway = () => {
+	const style = getComputedStyle(document.documentElement);
+	return [1, 2, 3, 4, 5]
+		.map(i => style.getPropertyValue(`--ask-chart-${i}`).trim())
+		.filter(Boolean);
+};
+
 const LazyPlot = lazy(async () => {
 	const [{ default: createPlotlyComponent }, plotlyModule] = await Promise.all([
 		import('react-plotly.js/factory'),
@@ -44,8 +51,17 @@ export function PlotlyArtifact({ artifact }: { artifact: ISupeAskArtifact }) {
 		return <PlotlyFallback message="Chart payload is malformed and could not be rendered." />;
 	}
 
+	const colorway = getChartColorway();
 	const layout = {
 		autosize: true,
+		...(colorway.length > 0 ? { colorway } : {}),
+		legend: {
+			orientation: 'h' as const,
+			x: 0.5,
+			xanchor: 'center' as const,
+			y: -0.2,
+			yanchor: 'top' as const,
+		},
 		...payload.layout,
 	};
 	const config = {

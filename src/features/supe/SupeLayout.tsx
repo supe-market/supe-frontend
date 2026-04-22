@@ -171,6 +171,13 @@ export function SupeLayout() {
   }, []);
 
   useEffect(() => {
+    if (!isAsk) return;
+    const handler = () => setCollapsed(true);
+    window.addEventListener('supe-code-canvas-opened', handler);
+    return () => window.removeEventListener('supe-code-canvas-opened', handler);
+  }, [isAsk]);
+
+  useEffect(() => {
     if (!isAsk) {
       return;
     }

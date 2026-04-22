@@ -668,6 +668,7 @@ export function AskView() {
 						codeAutoOpenedForRunRef.current = runId;
 						setCodeCanvasOpen(true);
 						setCodeCanvasCollapsed(false);
+						window.dispatchEvent(new CustomEvent('supe-code-canvas-opened'));
 					}
 				}
 				if (p.eventType === 'run.codegen.completed') {
@@ -874,7 +875,7 @@ export function AskView() {
 													thinkingMessage={msgThinking?.message || ''}
 													streamedNarrative={msgNarrative}
 													onFollowUp={(q) => void handleSubmit(q)}
-													onOpenCode={() => setCodeCanvasOpen(true)}
+													onOpenCode={() => { setCodeCanvasOpen(true); window.dispatchEvent(new CustomEvent('supe-code-canvas-opened')); }}
 												/>
 											) : (
 												<div className={styles.askMessageContent}>{msg.content}</div>
@@ -899,7 +900,7 @@ export function AskView() {
 											thinkingMessage={thinking?.message || ''}
 											streamedNarrative={streamedNarrative}
 											onFollowUp={(q) => void handleSubmit(q)}
-											onOpenCode={() => setCodeCanvasOpen(true)}
+											onOpenCode={() => { setCodeCanvasOpen(true); window.dispatchEvent(new CustomEvent('supe-code-canvas-opened')); }}
 										/>
 									</div>
 								) : null}

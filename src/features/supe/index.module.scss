@@ -369,8 +369,53 @@
 }
 
 .askRunError {
+	background: var(--ask-tone-critical-bg);
+	border: 1px solid color-mix(in srgb, var(--ask-tone-critical) 30%, transparent);
+	border-left: 3px solid var(--ask-tone-critical);
+	border-radius: var(--ask-card-radius);
+	padding: 12px 14px;
+}
+
+.askRunErrorHeader {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	font-size: 13px;
+	font-weight: var(--ask-weight-bold);
 	color: var(--ask-tone-critical);
-	font-size: 12px;
+	margin-bottom: 6px;
+}
+
+.askRunErrorBody {
+	font-size: 14px;
+	color: var(--ask-text);
+	margin: 0 0 8px;
+	line-height: 1.5;
+}
+
+.askRunErrorDetails {
+	font-size: 11px;
+	color: var(--ask-text-muted);
+	margin-top: 4px;
+
+	summary {
+		cursor: pointer;
+		user-select: none;
+		margin-bottom: 4px;
+
+		&:hover { color: var(--ask-text-secondary); }
+	}
+
+	code {
+		display: block;
+		margin-top: 6px;
+		padding: 6px 8px;
+		background: rgba(0,0,0,0.04);
+		border-radius: 4px;
+		font-size: 11px;
+		word-break: break-all;
+		color: var(--ask-text-muted);
+	}
 }
 
 .askEventList {
@@ -1053,18 +1098,7 @@
 	background: var(--ask-text);
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Error styling inside response card
-   ───────────────────────────────────────────────────────────── */
-.askRunError {
-	font-size: 13px;
-	color: var(--ask-tone-critical);
-	background: var(--ask-tone-critical-bg);
-	border: 1px solid var(--ask-tone-critical);
-	border-radius: var(--ask-card-radius);
-	padding: 10px 14px;
-	margin: 6px 0;
-}
+/* Duplicate removed — error card is defined earlier */
 
 @media screen and (max-width: 1280px) {
 	.askWorkspace {

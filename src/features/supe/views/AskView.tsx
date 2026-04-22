@@ -16,7 +16,8 @@ import {
 	MessageOutlined,
 	PlusOutlined,
 	ShareAltOutlined,
-	StopOutlined
+	StopOutlined,
+	WarningOutlined
 } from '@ant-design/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -132,6 +133,16 @@ function formatMetricDelta(payload: Record<string, any>) {
 
 function isTerminalRunStatus(status?: string | null) {
 	return ['completed', 'failed', 'cancelled'].includes(String(status || ''));
+}
+
+function getFriendlyError(raw: string): string {
+	const lower = raw.toLowerCase();
+	if (lower.includes('json') || lower.includes('code generator')) return "Couldn't generate the analysis. Try rephrasing your question.";
+	if (lower.includes('retrieval') || lower.includes('catalog')) return "Couldn't find relevant data for your question. Try being more specific.";
+	if (lower.includes('validation') || lower.includes('syntax')) return "The analysis code had errors after multiple attempts. Try a simpler question.";
+	if (lower.includes('timeout') || lower.includes('timed out')) return "Analysis timed out. Try a more specific question.";
+	if (lower.includes('cancelled')) return "Analysis was cancelled.";
+	return "Something went wrong. Please try again.";
 }
 
 function sortAskArtifacts(artifacts: ISupeAskArtifact[]) {
@@ -391,7 +402,22 @@ function StructuredAssistantMessage({
 
 			{/* Error */}
 			{run.status === 'failed' && run.error_message ? (
-				<div className={styles.askRunError}>{run.error_message}</div>
+				<div className={styles.askRunError}>
+					<div className={styles.askRunErrorHeader}>
+						<WarningOutlined />
+						<span>Analysis failed</span>
+					</div>
+					<p className={styles.askRunErrorBody}>{getFriendlyError(run.error_message)}</p>
+					<details className={styles.askRunErrorDetails}>
+						<summary>Technical details</summary>
+						<code>{run.error_message}</code>
+					</details>
+				</div>
+			) : null}
+			{run.status === 'failed' && run.question ? (
+				<div className={styles.askFollowUpRow}>
+					<button type="button" className={styles.askFollowUpChip} onClick={() => onFollowUp(run.question)}>Try again</button>
+				</div>
 			) : null}
 
 			{/* Action bar */}
@@ -508,6 +534,7 @@ export function AskView() {
 	const selectedThreadIdRef = useRef('');
 	const activeRunIdRef = useRef('');
 	const loadThreadRequestRef = useRef(0);
+	const codeAutoOpenedForRunRef = useRef('');
 	const conversationEndRef = useRef<HTMLDivElement | null>(null);
 	const conversationBodyRef = useRef<HTMLDivElement | null>(null);
 	const shouldAutoScrollRef = useRef(false);
@@ -635,8 +662,13 @@ export function AskView() {
 				}
 				if (p.eventType === 'run.codegen.delta') {
 					setStreamedCodeByRun((c) => ({ ...c, [runId]: (c[runId] || '') + String(p.payload?.delta || '') }));
-					// Clear thinking once code starts streaming
 					setThinkingByRun((c) => ({ ...c, [runId]: { stage: 'codegen', message: 'Writing code...' } }));
+					// Auto-open the code canvas on the first token for this run
+					if (codeAutoOpenedForRunRef.current !== runId) {
+						codeAutoOpenedForRunRef.current = runId;
+						setCodeCanvasOpen(true);
+						setCodeCanvasCollapsed(false);
+					}
 				}
 				if (p.eventType === 'run.codegen.completed') {
 					applyRunPatch(runId, {

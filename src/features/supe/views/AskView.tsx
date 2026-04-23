@@ -470,6 +470,12 @@ function CodeCanvas({
 					: <span><CodeOutlined /> Generated Code</span>
 				}
 				<Space size={2}>
+					{!collapsed && code ? (
+						<Button type="text" size="small" icon={<CopyOutlined />}
+							onClick={() => navigator.clipboard.writeText(code)}
+							title="Copy code"
+						/>
+					) : null}
 					<Button type="text" size="small"
 						icon={collapsed ? <ExpandOutlined /> : <CompressOutlined />}
 						onClick={onToggleCollapse}
@@ -652,6 +658,10 @@ export function AskView() {
 				}
 
 				// Thinking events — immediate feedback
+				if (p.eventType === 'run.artifacts.reset') {
+					setArtifactsByRun((c) => ({ ...c, [runId]: [] }));
+					return;
+				}
 				if (p.eventType === 'run.thinking') {
 					setThinkingByRun((c) => ({ ...c, [runId]: { stage: String(p.payload?.stage || ''), message: String(p.payload?.message || '') } }));
 					scrollToBottom();

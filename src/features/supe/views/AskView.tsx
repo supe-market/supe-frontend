@@ -319,12 +319,7 @@ function AskArtifactRenderer({ artifact, variant = 'default' }: { artifact: ISup
 		);
 	}
 	if (artifact.artifact_type === 'log') {
-		return (
-			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
-				<div className={styles.askArtifactHeader}>{artifact.title}</div>
-				<pre className={styles.askLogBlock}>{(artifact.payload?.lines || []).join('\n')}</pre>
-			</div>
-		);
+		return null;
 	}
 	return <div className={styles.askArtifactFallback}><Typography.Text type="secondary">Unsupported: {artifact.artifact_type}</Typography.Text></div>;
 }
@@ -487,12 +482,6 @@ function CodeCanvas({
 			{!collapsed ? (
 				<div className={styles.askCodeCanvasBody}>
 					<pre className={styles.askCodeBlock}>{code || 'No code generated yet.'}</pre>
-					{stdout.length ? (
-						<>
-							<div className={styles.askCodeCanvasDivider}>Execution Output</div>
-							<pre className={styles.askLogBlock}>{stdout.join('\n')}</pre>
-						</>
-					) : null}
 				</div>
 			) : null}
 		</aside>

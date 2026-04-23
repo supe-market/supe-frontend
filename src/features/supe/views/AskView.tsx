@@ -238,7 +238,7 @@ function ThinkingIndicator({ stage, message }: { stage: string; message?: string
 
 /* ─────────────────────── Artifact renderer ───────────────────── */
 
-function AskArtifactRenderer({ artifact, variant = 'default' }: { artifact: ISupeAskArtifact; variant?: 'default' | 'overview' }) {
+function AskArtifactRenderer({ artifact, variant = 'default', runStatus }: { artifact: ISupeAskArtifact; variant?: 'default' | 'overview'; runStatus?: string }) {
 	if (artifact.artifact_type === 'markdown') {
 		return (
 			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
@@ -319,7 +319,13 @@ function AskArtifactRenderer({ artifact, variant = 'default' }: { artifact: ISup
 		);
 	}
 	if (artifact.artifact_type === 'log') {
-		return null;
+		if (runStatus !== 'failed') return null;
+		return (
+			<div className={`${styles.askArtifactCard} ${styles.askArtifactCardWide}`}>
+				<div className={styles.askArtifactHeader}>{artifact.title || 'Execution Log'}</div>
+				<pre className={styles.askLogBlock}>{(artifact.payload?.lines || []).join('\n')}</pre>
+			</div>
+		);
 	}
 	return <div className={styles.askArtifactFallback}><Typography.Text type="secondary">Unsupported: {artifact.artifact_type}</Typography.Text></div>;
 }
@@ -373,26 +379,26 @@ function StructuredAssistantMessage({
 
 			{leadingArtifacts.length ? (
 				<div className={styles.askInlineArtifactStack}>
-					{leadingArtifacts.map((artifact) => <AskArtifactRenderer key={artifact.id} artifact={artifact} />)}
+					{leadingArtifacts.map((artifact) => <AskArtifactRenderer key={artifact.id} artifact={artifact} runStatus={run.status} />)}
 				</div>
 			) : null}
 
 			{overviewMetrics.length ? (
 				<div className={styles.askOverviewMetricsRail}>
 					{overviewMetrics.map((artifact) => (
-						<AskArtifactRenderer key={artifact.id} artifact={artifact} variant="overview" />
+						<AskArtifactRenderer key={artifact.id} artifact={artifact} variant="overview" runStatus={run.status} />
 					))}
 				</div>
 			) : null}
 
 			{trailingArtifacts.length ? (
 				<div className={styles.askInlineArtifactStack}>
-					{trailingArtifacts.map((artifact) => <AskArtifactRenderer key={artifact.id} artifact={artifact} />)}
+					{trailingArtifacts.map((artifact) => <AskArtifactRenderer key={artifact.id} artifact={artifact} runStatus={run.status} />)}
 				</div>
 			) : null}
 
 			{overviewHighlights ? (
-				<AskArtifactRenderer key={overviewHighlights.id} artifact={overviewHighlights} />
+				<AskArtifactRenderer key={overviewHighlights.id} artifact={overviewHighlights} runStatus={run.status} />
 			) : null}
 
 			{/* Error */}
